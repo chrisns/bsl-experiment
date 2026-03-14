@@ -1,0 +1,2683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSL Sign Recognition - Video Test Harness</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- TensorFlow.js + MediaPipe for browser-side pose overlay -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+    <style>
+        /* Override body overflow for this page */
+        body { overflow: auto; }
+
+        /* ============ TEST HARNESS LAYOUT ============ */
+        .test-harness {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 56px);
+        }
+
+        .test-nav-modes {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .test-main {
+            display: flex;
+            flex: 1;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            min-height: 0;
+        }
+
+        /* ============ LEFT PANEL: VIDEO ============ */
+        .test-video-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-width: 0;
+        }
+
+        .test-video-input {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .test-video-input label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .test-video-input .input-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: stretch;
+        }
+
+        .test-video-input input[type="text"] {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.95rem;
+            font-family: var(--font-main);
+        }
+
+        .test-video-input input[type="file"] {
+            display: none;
+        }
+
+        .btn-file-upload {
+            padding: 0.5rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-file-upload:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-load-video {
+            padding: 0.5rem 1rem;
+            background: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-load-video:hover {
+            background: var(--accent-hover);
+        }
+
+        .preloaded-videos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .preloaded-btn {
+            padding: 0.3rem 0.6rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .preloaded-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .preloaded-btn.active {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        /* Video viewport */
+        .test-video-viewport {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            flex-shrink: 0;
+        }
+
+        .test-video-viewport video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            /* No mirroring for pre-recorded videos */
+            transform: none;
+        }
+
+        .test-video-viewport canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            /* No mirroring for pre-recorded videos */
+            transform: none;
+        }
+
+        .test-video-status {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: var(--overlay);
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            backdrop-filter: blur(4px);
+            z-index: 5;
+        }
+
+        .test-video-status.processing {
+            color: var(--warning);
+        }
+
+        .test-video-status.complete {
+            color: var(--success);
+        }
+
+        .test-video-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--overlay);
+            padding: 0.75rem 1rem;
+            backdrop-filter: blur(8px);
+        }
+
+        .test-video-caption .caption-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .test-video-caption .caption-confidence {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.15rem;
+        }
+
+        /* Video controls */
+        .test-video-controls {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 0.4rem 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .control-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .control-btn.active {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .speed-group {
+            display: flex;
+            gap: 0.25rem;
+            margin-left: auto;
+        }
+
+        .speed-btn {
+            padding: 0.3rem 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .speed-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .speed-btn.active {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        .progress-scrubber {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+            margin-top: 0.25rem;
+        }
+
+        .progress-scrubber::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .progress-scrubber::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            border: none;
+        }
+
+        .time-display {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-family: monospace;
+            white-space: nowrap;
+        }
+
+        /* Known translation input */
+        .test-known-translation {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .test-known-translation label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .test-known-translation textarea {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.95rem;
+            font-family: var(--font-main);
+            resize: vertical;
+            min-height: 50px;
+        }
+
+        .test-known-translation .hint {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* ============ RIGHT PANEL: RESULTS ============ */
+        .test-results-panel {
+            width: 420px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            flex-shrink: 0;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .results-section {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .results-section h3 {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .results-section h3 .badge {
+            background: var(--accent);
+            color: var(--bg-primary);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        /* Recognised signs list */
+        .recognised-signs-list {
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .recognised-sign-entry {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.6rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .recognised-sign-entry .sign-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .recognised-sign-entry .sign-time {
+            font-family: monospace;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .recognised-sign-entry .sign-confidence {
+            font-family: monospace;
+            font-size: 0.75rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+        }
+
+        .confidence-high { background: rgba(0, 230, 118, 0.2); color: var(--success); }
+        .confidence-medium { background: rgba(255, 171, 64, 0.2); color: var(--warning); }
+        .confidence-low { background: rgba(255, 82, 82, 0.2); color: var(--error); }
+
+        /* Comparison table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .comparison-table th {
+            text-align: left;
+            padding: 0.4rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .comparison-table td {
+            padding: 0.4rem 0.5rem;
+            border-bottom: 1px solid rgba(42, 42, 78, 0.3);
+        }
+
+        .comparison-table .match { color: var(--success); }
+        .comparison-table .miss { color: var(--error); }
+        .comparison-table .extra { color: var(--warning); }
+
+        .comparison-table .status-icon {
+            font-size: 1rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+
+        /* Accuracy metrics */
+        .accuracy-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .metric-card .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }
+
+        .metric-card .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-card.metric-good .metric-value { color: var(--success); }
+        .metric-card.metric-ok .metric-value { color: var(--warning); }
+        .metric-card.metric-bad .metric-value { color: var(--error); }
+
+        /* Timeline */
+        .timeline-container {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .timeline-container h3 {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+        }
+
+        .timeline-track {
+            position: relative;
+            height: 40px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--bg-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 0.3rem;
+            cursor: default;
+            min-width: 2px;
+        }
+
+        .timeline-marker.source-segment {
+            background: var(--accent);
+            opacity: 0.85;
+        }
+
+        .timeline-marker.source-landmarks {
+            background: var(--success);
+            opacity: 0.85;
+        }
+
+        .timeline-marker.source-nmf {
+            background: var(--warning);
+            opacity: 0.85;
+        }
+
+        .timeline-playhead {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: var(--error);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .timeline-legend {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .timeline-legend span::before {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            margin-right: 0.3rem;
+            vertical-align: middle;
+        }
+
+        .timeline-legend .legend-segment::before { background: var(--accent); }
+        .timeline-legend .legend-landmarks::before { background: var(--success); }
+        .timeline-legend .legend-nmf::before { background: var(--warning); }
+
+        /* ============ BATCH TEST MODE ============ */
+        .batch-mode {
+            display: none;
+            padding: 1.5rem;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .batch-mode.active {
+            display: flex;
+        }
+
+        .batch-input-area {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .batch-input-area h3 {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+        }
+
+        .batch-input-area textarea {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            padding: 0.75rem;
+            font-size: 0.85rem;
+            font-family: monospace;
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        .batch-input-area .hint {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .batch-controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            margin-top: 0.75rem;
+        }
+
+        .batch-progress {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .batch-progress h3 {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+        }
+
+        .batch-progress-bar {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .batch-progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 4px;
+            transition: width 0.3s;
+            width: 0;
+        }
+
+        .batch-progress-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .batch-results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 0.75rem;
+        }
+
+        .batch-results-table th {
+            text-align: left;
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .batch-results-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(42, 42, 78, 0.3);
+        }
+
+        .batch-results-table .status-pass { color: var(--success); }
+        .batch-results-table .status-partial { color: var(--warning); }
+        .batch-results-table .status-fail { color: var(--error); }
+
+        .batch-aggregate {
+            background: var(--bg-surface);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .batch-aggregate h3 {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+        }
+
+        /* Hidden video for batch processing */
+        .batch-hidden-video {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            width: 640px;
+            height: 480px;
+        }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 900px) {
+            .test-main {
+                flex-direction: column;
+            }
+
+            .test-results-panel {
+                width: 100%;
+            }
+        }
+
+        /* Skip link */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--accent);
+            color: var(--bg-primary);
+            padding: 0.5rem 1rem;
+            z-index: 200;
+            font-weight: 600;
+            border-radius: 0 0 8px 0;
+        }
+
+        .skip-link:focus {
+            top: 0;
+        }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#testMain">Skip to main content</a>
+
+    <!-- Nav -->
+    <nav class="nav" role="navigation" aria-label="Test harness navigation">
+        <div class="nav-brand" aria-label="BSL Test Harness">BSL Test Harness</div>
+        <div class="test-nav-modes" role="tablist" aria-label="Test modes">
+            <button class="nav-btn active" role="tab" aria-selected="true" data-mode="single"
+                    aria-controls="single-panel" tabindex="0" id="tab-single">Single Video</button>
+            <button class="nav-btn" role="tab" aria-selected="false" data-mode="batch"
+                    aria-controls="batch-panel" tabindex="-1" id="tab-batch">Batch Test</button>
+        </div>
+        <div class="nav-user" style="display:flex;align-items:center;gap:0.75rem;">
+            <button class="nav-btn" id="domHandBtn" aria-label="Dominant hand: Right (mirror on)"
+                    style="font-size:0.8rem;padding:0.3rem 0.7rem;white-space:nowrap;">
+                Dominant: <strong id="domHandLabel">Right</strong>
+            </button>
+            <span class="status-dot" id="statusDot" aria-label="MediaPipe status: not loaded"></span>
+            <span id="statusText" style="font-size: 0.8rem; color: var(--text-secondary);">MediaPipe not loaded</span>
+        </div>
+    </nav>
+
+    <!-- ============ SINGLE VIDEO TEST ============ -->
+    <div class="test-harness" id="single-panel" role="tabpanel" aria-labelledby="tab-single">
+        <div class="test-main" id="testMain">
+            <!-- LEFT: Video + controls -->
+            <div class="test-video-panel">
+                <!-- Video source input -->
+                <div class="test-video-input">
+                    <label for="videoUrlInput" id="videoSourceLabel">Video Source</label>
+                    <div class="input-row">
+                        <input type="text" id="videoUrlInput" placeholder="Enter video URL or paste a link..."
+                               aria-labelledby="videoSourceLabel">
+                        <label class="btn-file-upload" for="videoFileInput" role="button" tabindex="0"
+                               aria-label="Upload local video file">
+                            Upload
+                        </label>
+                        <input type="file" id="videoFileInput" accept="video/*" aria-label="Choose video file">
+                        <button class="btn-load-video" id="loadVideoBtn" aria-label="Load video">Load</button>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem; display: block;">
+                            Sample BSL videos
+                        </label>
+                        <div class="preloaded-videos" id="preloadedVideos" role="listbox" aria-label="Pre-loaded BSL video samples">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video viewport -->
+                <div class="test-video-viewport" id="videoViewport">
+                    <video id="testVideo" preload="auto" crossorigin="anonymous"
+                           aria-label="Test video playback"></video>
+                    <canvas id="testOverlayCanvas" aria-hidden="true"></canvas>
+                    <div class="test-video-status" id="videoStatus">No video loaded</div>
+                    <div class="test-video-caption" id="videoCaption" aria-live="polite" aria-atomic="true">
+                        <div class="caption-text" id="liveCaptionText">Waiting for video...</div>
+                        <div class="caption-confidence" id="liveCaptionConfidence"></div>
+                    </div>
+                </div>
+
+                <!-- Playback controls -->
+                <div class="test-video-controls" role="toolbar" aria-label="Video playback controls">
+                    <button class="control-btn" id="playPauseBtn" disabled aria-label="Play">
+                        <span id="playPauseIcon">&#9654;</span> <span id="playPauseLabel">Play</span>
+                    </button>
+                    <button class="control-btn" id="stepBackBtn" disabled aria-label="Step back one frame">
+                        &#9664;&#9664; Frame
+                    </button>
+                    <button class="control-btn" id="stepFwdBtn" disabled aria-label="Step forward one frame">
+                        Frame &#9654;&#9654;
+                    </button>
+                    <button class="control-btn" id="processBtn" disabled aria-label="Process entire video">
+                        Process All
+                    </button>
+                    <span class="time-display" id="timeDisplay" aria-live="off">0:00 / 0:00</span>
+                    <div class="speed-group" role="radiogroup" aria-label="Playback speed">
+                        <button class="speed-btn" data-speed="0.25" role="radio" aria-checked="false">0.25x</button>
+                        <button class="speed-btn" data-speed="0.5" role="radio" aria-checked="false">0.5x</button>
+                        <button class="speed-btn active" data-speed="1" role="radio" aria-checked="true">1x</button>
+                        <button class="speed-btn" data-speed="2" role="radio" aria-checked="false">2x</button>
+                    </div>
+                    <input type="range" class="progress-scrubber" id="progressScrubber" min="0" max="1000"
+                           value="0" step="1" disabled aria-label="Video progress">
+                </div>
+
+                <!-- Known translation -->
+                <div class="test-known-translation">
+                    <label for="knownTranslation">Known Translation (expected signs)</label>
+                    <textarea id="knownTranslation"
+                              placeholder="Enter expected signs separated by commas, e.g.: HELLO, MY, NAME, ..."
+                              aria-describedby="knownTranslationHint"></textarea>
+                    <span class="hint" id="knownTranslationHint">
+                        Comma-separated BSL glosses in order of appearance. Used for accuracy calculation.
+                    </span>
+                </div>
+
+                <!-- Timeline -->
+                <div class="timeline-container">
+                    <h3>Recognition Timeline</h3>
+                    <div class="timeline-track" id="timelineTrack" role="img"
+                         aria-label="Timeline showing when each sign was detected">
+                        <div class="timeline-playhead" id="timelinePlayhead" style="left: 0;"></div>
+                    </div>
+                    <div class="timeline-legend">
+                        <span class="legend-segment">Segment</span>
+                        <span class="legend-landmarks">Continuous</span>
+                        <span class="legend-nmf">NMF</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Results -->
+            <div class="test-results-panel" role="region" aria-label="Recognition results">
+                <!-- Recognised signs -->
+                <div class="results-section">
+                    <h3>Recognised Signs <span class="badge" id="signCount">0</span></h3>
+                    <div class="recognised-signs-list" id="recognisedSignsList"
+                         role="log" aria-live="polite" aria-relevant="additions">
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; padding: 0.5rem;">
+                            No signs recognised yet. Load and play a video to begin.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison -->
+                <div class="results-section" id="comparisonSection" style="display: none;">
+                    <h3>Expected vs Recognised</h3>
+                    <table class="comparison-table" id="comparisonTable" aria-label="Comparison of expected and recognised signs">
+                        <thead>
+                            <tr>
+                                <th scope="col">Status</th>
+                                <th scope="col">Expected</th>
+                                <th scope="col">Recognised</th>
+                                <th scope="col">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparisonBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Accuracy Metrics -->
+                <div class="results-section" id="metricsSection" style="display: none;">
+                    <h3>Accuracy Metrics</h3>
+                    <div class="accuracy-metrics" id="accuracyMetrics">
+                        <div class="metric-card" id="metricAccuracy">
+                            <div class="metric-value">--</div>
+                            <div class="metric-label">Accuracy</div>
+                        </div>
+                        <div class="metric-card" id="metricPrecision">
+                            <div class="metric-value">--</div>
+                            <div class="metric-label">Precision</div>
+                        </div>
+                        <div class="metric-card" id="metricRecall">
+                            <div class="metric-value">--</div>
+                            <div class="metric-label">Recall</div>
+                        </div>
+                        <div class="metric-card" id="metricCorrect">
+                            <div class="metric-value">--</div>
+                            <div class="metric-label">Correct</div>
+                        </div>
+                        <div class="metric-card" id="metricFalsePos">
+                            <div class="metric-value">--</div>
+                            <div class="metric-label">False Positives</div>
+                        </div>
+                        <div class="metric-card" id="metricMissed">
+                            <div class="metric-value">--</div>
+                            <div class="metric-label">Missed</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NMF state -->
+                <div class="results-section">
+                    <h3>Non-Manual Features</h3>
+                    <div id="nmfDisplay" style="font-size: 0.85rem; color: var(--text-secondary);">
+                        No data yet
+                    </div>
+                </div>
+
+                <!-- Segmentation state -->
+                <div class="results-section">
+                    <h3>Segmentation State</h3>
+                    <div id="segDisplay" style="font-size: 0.85rem; color: var(--text-secondary);">
+                        No data yet
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ BATCH TEST MODE ============ -->
+    <div class="batch-mode" id="batch-panel" role="tabpanel" aria-labelledby="tab-batch" hidden>
+        <div class="batch-input-area">
+            <h3>Batch Test Configuration</h3>
+            <textarea id="batchInput" aria-label="Batch test JSON configuration"
+                      placeholder='[
+  { "url": "https://example.com/hello.mp4", "expected": "HELLO" },
+  { "url": "https://example.com/thanks.mp4", "expected": "THANK-YOU" },
+  { "url": "https://example.com/my-name.mp4", "expected": "MY, NAME" }
+]'></textarea>
+            <span class="hint">
+                JSON array of objects with "url" and "expected" fields. "expected" is a comma-separated list of BSL glosses.
+                You can also use "label" for a human-readable description.
+            </span>
+            <div class="batch-controls">
+                <button class="control-btn" id="batchLoadPresetBtn" aria-label="Load 119-sign test suite"
+                        style="background:var(--accent);color:#fff;font-weight:600;">Load 119-Sign Test Suite</button>
+                <button class="btn-translate" id="batchRunBtn" aria-label="Run batch test">Run Batch Test</button>
+                <button class="control-btn" id="batchStopBtn" disabled aria-label="Stop batch test">Stop</button>
+                <button class="control-btn" id="batchExportBtn" disabled aria-label="Export results as CSV">Export CSV</button>
+            </div>
+            <div class="batch-controls" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);">
+                <span style="font-weight:600;font-size:0.85rem;color:var(--text-secondary);">DTW Templates:</span>
+                <button class="control-btn" id="dtwRecordBtn" aria-label="Record DTW templates from test videos"
+                        style="background:#2563eb;color:#fff;">Record Templates</button>
+                <button class="control-btn" id="dtwSaveBtn" disabled aria-label="Save DTW templates">Save Templates</button>
+                <button class="control-btn" id="dtwLoadBtn" aria-label="Load DTW templates">Load Templates</button>
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer;">
+                    <input type="checkbox" id="dtwEnabledChk" aria-label="Enable DTW scoring" />
+                    DTW Enabled
+                </label>
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer;">
+                    <input type="checkbox" id="dtwLeaveOneOutChk" checked aria-label="Leave-one-out testing" />
+                    Leave-one-out
+                </label>
+                <span id="dtwStatus" style="font-size:0.8rem;color:var(--text-secondary);">No templates loaded</span>
+                <input type="file" id="dtwFileInput" accept=".json" style="display:none;" aria-hidden="true" />
+            </div>
+            <div class="batch-controls" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);">
+                <span style="font-weight:600;font-size:0.85rem;color:var(--text-secondary);">ML Classifier:</span>
+                <button class="control-btn" id="mlLoadBtn" aria-label="Load ML model"
+                        style="background:#7c3aed;color:#fff;">Load ONNX Model</button>
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer;">
+                    <input type="checkbox" id="mlEnabledChk" aria-label="Enable ML scoring" disabled />
+                    ML Enabled
+                </label>
+                <select id="mlModeSelect" style="font-size:0.85rem;padding:0.2rem 0.4rem;" disabled>
+                    <option value="only">ML Only</option>
+                    <option value="blend">Blend (50/50)</option>
+                    <option value="override">ML Override</option>
+                </select>
+                <span id="mlStatus" style="font-size:0.8rem;color:var(--text-secondary);">No model loaded</span>
+            </div>
+        </div>
+
+        <div class="batch-progress" id="batchProgressSection" style="display: none;">
+            <h3>Batch Progress</h3>
+            <div class="batch-progress-bar">
+                <div class="batch-progress-fill" id="batchProgressFill"></div>
+            </div>
+            <div class="batch-progress-text" id="batchProgressText">0 / 0 videos processed</div>
+        </div>
+
+        <div class="batch-progress" id="batchResultsSection" style="display: none;">
+            <h3>Batch Results</h3>
+            <table class="batch-results-table" id="batchResultsTable" aria-label="Batch test results">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Video</th>
+                        <th scope="col">Expected</th>
+                        <th scope="col">Recognised</th>
+                        <th scope="col">Accuracy</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="batchResultsBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="batch-aggregate" id="batchAggregateSection" style="display: none;">
+            <h3>Aggregate Results</h3>
+            <div class="accuracy-metrics" id="batchAggregateMetrics">
+                <div class="metric-card" id="batchMetricAccuracy">
+                    <div class="metric-value">--</div>
+                    <div class="metric-label">Overall Accuracy</div>
+                </div>
+                <div class="metric-card" id="batchMetricPrecision">
+                    <div class="metric-value">--</div>
+                    <div class="metric-label">Overall Precision</div>
+                </div>
+                <div class="metric-card" id="batchMetricRecall">
+                    <div class="metric-value">--</div>
+                    <div class="metric-label">Overall Recall</div>
+                </div>
+                <div class="metric-card" id="batchMetricTotal">
+                    <div class="metric-value">--</div>
+                    <div class="metric-label">Videos Tested</div>
+                </div>
+                <div class="metric-card" id="batchMetricPassed">
+                    <div class="metric-value">--</div>
+                    <div class="metric-label">Passed (>50%)</div>
+                </div>
+                <div class="metric-card" id="batchMetricAvgTime">
+                    <div class="metric-value">--</div>
+                    <div class="metric-label">Avg Process Time</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden video element for batch processing -->
+        <video id="batchVideo" class="batch-hidden-video" preload="auto" crossorigin="anonymous"
+               aria-hidden="true"></video>
+        <canvas id="batchCanvas" class="batch-hidden-video" width="640" height="480"
+                aria-hidden="true"></canvas>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none" role="alert" aria-label="Loading">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+    <script src="sign-dictionary.js"></script>
+    <script src="sign-recogniser.js"></script>
+    <script src="ml-classifier.js"></script>
+
+    <script>
+    'use strict';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Pre-loaded BSL video samples
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Self-hosted test videos (from signbsl.com/signstation, hosted on our S3/CloudFront)
+    const PRELOADED_VIDEOS = [
+        {
+            label: 'HELLO (SignStation)',
+            url: 'test-videos/hello.mp4',
+            expected: 'HELLO',
+        },
+        {
+            label: 'THANK-YOU (SignStation)',
+            url: 'test-videos/thank-you.mp4',
+            expected: 'THANK-YOU',
+        },
+        {
+            label: 'PLEASE (SignStation)',
+            url: 'test-videos/please.mp4',
+            expected: 'PLEASE',
+        },
+        {
+            label: 'GOOD (SignStation)',
+            url: 'test-videos/good.mp4',
+            expected: 'GOOD',
+        },
+        {
+            label: 'YES (SignStation)',
+            url: 'test-videos/yes.mp4',
+            expected: 'YES',
+        },
+        {
+            label: 'NO (SignStation)',
+            url: 'test-videos/no.mp4',
+            expected: 'NO',
+        },
+        {
+            label: 'HELP (SignStation)',
+            url: 'test-videos/help.mp4',
+            expected: 'HELP',
+        },
+        {
+            label: 'SORRY (SignStation)',
+            url: 'test-videos/sorry.mp4',
+            expected: 'SORRY',
+        },
+    ];
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // State
+    // ═══════════════════════════════════════════════════════════════════════
+
+    let holistic = null;
+    let holisticReady = false;
+    let isProcessing = false;
+    let isPlaying = false;
+    let playbackSpeed = 1;
+    let recognisedSigns = [];       // { sign, confidence, source, time, videoTime }
+    let videoDuration = 0;
+    let animFrameId = null;
+    let processAllMode = false;
+    let processAllResolve = null;
+    // Pre-recorded videos are filmed from viewer's perspective, so hands need
+    // mirroring to match the selfie-mode assumption in the recogniser
+    let mirrorVideo = true;
+
+    // Batch state
+    let batchRunning = false;
+    let batchAbort = false;
+    let batchResults = [];
+
+    // Canvas drawing constants (mirrored from mediapipe-overlay.js)
+    const HAND_COLOR = '#00FF00';
+    const POSE_COLOR = '#00D4FF';
+    const LINE_WIDTH = 2;
+    const POINT_RADIUS = 3;
+
+    const POSE_CONNECTIONS = [
+        [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+        [11, 23], [12, 24], [23, 24],
+        [15, 17], [15, 19], [15, 21], [16, 18], [16, 20], [16, 22],
+    ];
+
+    const HAND_CONNECTIONS = [
+        [0, 1], [1, 2], [2, 3], [3, 4],
+        [0, 5], [5, 6], [6, 7], [7, 8],
+        [5, 9], [9, 10], [10, 11], [11, 12],
+        [9, 13], [13, 14], [14, 15], [15, 16],
+        [13, 17], [0, 17], [17, 18], [18, 19], [19, 20],
+    ];
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DOM references
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const els = {
+        // Video
+        video: document.getElementById('testVideo'),
+        canvas: document.getElementById('testOverlayCanvas'),
+        videoStatus: document.getElementById('videoStatus'),
+        liveCaptionText: document.getElementById('liveCaptionText'),
+        liveCaptionConfidence: document.getElementById('liveCaptionConfidence'),
+        videoUrlInput: document.getElementById('videoUrlInput'),
+        videoFileInput: document.getElementById('videoFileInput'),
+        loadVideoBtn: document.getElementById('loadVideoBtn'),
+        preloadedVideos: document.getElementById('preloadedVideos'),
+
+        // Controls
+        playPauseBtn: document.getElementById('playPauseBtn'),
+        stepBackBtn: document.getElementById('stepBackBtn'),
+        stepFwdBtn: document.getElementById('stepFwdBtn'),
+        processBtn: document.getElementById('processBtn'),
+        progressScrubber: document.getElementById('progressScrubber'),
+        timeDisplay: document.getElementById('timeDisplay'),
+        playPauseIcon: document.getElementById('playPauseIcon'),
+        playPauseLabel: document.getElementById('playPauseLabel'),
+
+        // Known translation
+        knownTranslation: document.getElementById('knownTranslation'),
+
+        // Results
+        recognisedSignsList: document.getElementById('recognisedSignsList'),
+        signCount: document.getElementById('signCount'),
+        comparisonSection: document.getElementById('comparisonSection'),
+        comparisonBody: document.getElementById('comparisonBody'),
+        metricsSection: document.getElementById('metricsSection'),
+        nmfDisplay: document.getElementById('nmfDisplay'),
+        segDisplay: document.getElementById('segDisplay'),
+
+        // Timeline
+        timelineTrack: document.getElementById('timelineTrack'),
+        timelinePlayhead: document.getElementById('timelinePlayhead'),
+
+        // Tabs
+        statusDot: document.getElementById('statusDot'),
+        statusText: document.getElementById('statusText'),
+        loadingOverlay: document.getElementById('loadingOverlay'),
+
+        // Batch
+        batchInput: document.getElementById('batchInput'),
+        batchRunBtn: document.getElementById('batchRunBtn'),
+        batchStopBtn: document.getElementById('batchStopBtn'),
+        batchExportBtn: document.getElementById('batchExportBtn'),
+        batchProgressSection: document.getElementById('batchProgressSection'),
+        batchProgressFill: document.getElementById('batchProgressFill'),
+        batchProgressText: document.getElementById('batchProgressText'),
+        batchResultsSection: document.getElementById('batchResultsSection'),
+        batchResultsBody: document.getElementById('batchResultsBody'),
+        batchAggregateSection: document.getElementById('batchAggregateSection'),
+        batchVideo: document.getElementById('batchVideo'),
+        batchCanvas: document.getElementById('batchCanvas'),
+
+        // DTW
+        dtwRecordBtn: document.getElementById('dtwRecordBtn'),
+        dtwSaveBtn: document.getElementById('dtwSaveBtn'),
+        dtwLoadBtn: document.getElementById('dtwLoadBtn'),
+        dtwEnabledChk: document.getElementById('dtwEnabledChk'),
+        dtwLeaveOneOutChk: document.getElementById('dtwLeaveOneOutChk'),
+        dtwStatus: document.getElementById('dtwStatus'),
+        dtwFileInput: document.getElementById('dtwFileInput'),
+        mlLoadBtn: document.getElementById('mlLoadBtn'),
+        mlEnabledChk: document.getElementById('mlEnabledChk'),
+        mlModeSelect: document.getElementById('mlModeSelect'),
+        mlStatus: document.getElementById('mlStatus'),
+    };
+
+    const canvasCtx = els.canvas.getContext('2d');
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Initialise MediaPipe Holistic
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function initHolistic() {
+        els.statusText.textContent = 'Loading MediaPipe...';
+        els.statusDot.className = 'status-dot processing';
+
+        try {
+            holistic = new Holistic({
+                locateFile: (file) =>
+                    `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/${file}`,
+            });
+
+            holistic.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                smoothSegmentation: false,
+                refineFaceLandmarks: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5,
+            });
+
+            holistic.onResults(onHolisticResults);
+
+            // Warm up with a blank frame
+            const warmupCanvas = document.createElement('canvas');
+            warmupCanvas.width = 640;
+            warmupCanvas.height = 480;
+            const warmupCtx = warmupCanvas.getContext('2d');
+            warmupCtx.fillStyle = '#000';
+            warmupCtx.fillRect(0, 0, 640, 480);
+            await holistic.send({ image: warmupCanvas });
+
+            holisticReady = true;
+            els.statusText.textContent = 'MediaPipe ready';
+            els.statusDot.className = 'status-dot connected';
+        } catch (err) {
+            console.error('Failed to initialise MediaPipe Holistic:', err);
+            els.statusText.textContent = 'MediaPipe failed to load';
+            els.statusDot.className = 'status-dot';
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MediaPipe results handler
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function onHolisticResults(results) {
+        // Draw overlay on canvas
+        drawOverlay(results, els.canvas, canvasCtx);
+
+        // Feed to sign recogniser with video timestamp (ms) for accurate
+        // velocity calculation during seek-based frame processing
+        if (typeof SignRecogniser !== 'undefined') {
+            const videoTimeMs = (els.video.currentTime || 0) * 1000;
+            SignRecogniser.processLandmarks(results, videoTimeMs);
+        }
+
+        // Update NMF and segmentation displays
+        updateDiagnostics();
+    }
+
+    function drawOverlay(results, canvasEl, ctx) {
+        if (!ctx || !canvasEl) return;
+
+        ctx.save();
+        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+        // Pose
+        if (results.poseLandmarks) {
+            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, canvasEl,
+                { color: POSE_COLOR, lineWidth: LINE_WIDTH });
+            results.poseLandmarks.slice(0, 25).forEach((lm) => {
+                drawPoint(ctx, lm, POSE_COLOR, POINT_RADIUS, canvasEl);
+            });
+        }
+
+        // Hands
+        if (results.leftHandLandmarks) {
+            drawConnectors(ctx, results.leftHandLandmarks, HAND_CONNECTIONS, canvasEl,
+                { color: HAND_COLOR, lineWidth: LINE_WIDTH + 1 });
+            results.leftHandLandmarks.forEach((lm) =>
+                drawPoint(ctx, lm, HAND_COLOR, POINT_RADIUS + 1, canvasEl));
+        }
+        if (results.rightHandLandmarks) {
+            drawConnectors(ctx, results.rightHandLandmarks, HAND_CONNECTIONS, canvasEl,
+                { color: HAND_COLOR, lineWidth: LINE_WIDTH + 1 });
+            results.rightHandLandmarks.forEach((lm) =>
+                drawPoint(ctx, lm, HAND_COLOR, POINT_RADIUS + 1, canvasEl));
+        }
+
+        ctx.restore();
+    }
+
+    function drawPoint(ctx, landmark, color, radius, canvasEl) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(
+            landmark.x * canvasEl.width,
+            landmark.y * canvasEl.height,
+            radius, 0, 2 * Math.PI
+        );
+        ctx.fill();
+    }
+
+    function drawConnectors(ctx, landmarks, connections, canvasEl, style) {
+        if (!landmarks || !connections) return;
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = style.lineWidth;
+        connections.forEach(([start, end]) => {
+            if (landmarks[start] && landmarks[end]) {
+                ctx.beginPath();
+                ctx.moveTo(landmarks[start].x * canvasEl.width, landmarks[start].y * canvasEl.height);
+                ctx.lineTo(landmarks[end].x * canvasEl.width, landmarks[end].y * canvasEl.height);
+                ctx.stroke();
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Sign recognition callback
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function onSignRecognised(data) {
+        if (!data.sign || data.sign === '' || data.source === 'idle') return;
+
+        const videoTime = els.video.currentTime || 0;
+        const entry = {
+            sign: data.sign,
+            confidence: data.confidence,
+            source: data.source,
+            time: performance.now(),
+            videoTime: videoTime,
+            alternatives: data.alternatives || [],
+        };
+
+        recognisedSigns.push(entry);
+        updateSignsList();
+        updateTimeline();
+        updateCaption(data);
+        updateComparison();
+    }
+
+    function updateCaption(data) {
+        els.liveCaptionText.textContent = data.sign || 'Watching...';
+        if (data.confidence) {
+            const pct = (data.confidence * 100).toFixed(0);
+            els.liveCaptionConfidence.textContent = `Confidence: ${pct}% (${data.source})`;
+        } else {
+            els.liveCaptionConfidence.textContent = '';
+        }
+    }
+
+    function updateSignsList() {
+        els.signCount.textContent = recognisedSigns.length;
+
+        if (recognisedSigns.length === 0) {
+            els.recognisedSignsList.innerHTML =
+                '<div style="color: var(--text-secondary); font-size: 0.85rem; padding: 0.5rem;">No signs recognised yet. Load and play a video to begin.</div>';
+            return;
+        }
+
+        els.recognisedSignsList.innerHTML = recognisedSigns.map((entry, i) => {
+            const pct = (entry.confidence * 100).toFixed(0);
+            const confClass = entry.confidence >= 0.7 ? 'confidence-high' :
+                              entry.confidence >= 0.5 ? 'confidence-medium' : 'confidence-low';
+            const timeStr = formatTime(entry.videoTime);
+            return `<div class="recognised-sign-entry" role="listitem">
+                <span class="sign-name">${escapeHtml(entry.sign)}</span>
+                <span class="sign-time">${timeStr}</span>
+                <span class="sign-confidence ${confClass}">${pct}%</span>
+            </div>`;
+        }).join('');
+
+        // Scroll to bottom
+        els.recognisedSignsList.scrollTop = els.recognisedSignsList.scrollHeight;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Timeline
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function updateTimeline() {
+        if (videoDuration <= 0 || recognisedSigns.length === 0) return;
+
+        // Clear existing markers (keep playhead)
+        const markers = els.timelineTrack.querySelectorAll('.timeline-marker');
+        markers.forEach(m => m.remove());
+
+        recognisedSigns.forEach((entry) => {
+            const pct = (entry.videoTime / videoDuration) * 100;
+            const marker = document.createElement('div');
+            marker.className = `timeline-marker source-${entry.source}`;
+            marker.style.left = `${pct}%`;
+            // Estimate width based on a 0.5s sign duration
+            const widthPct = Math.max(1, (0.5 / videoDuration) * 100);
+            marker.style.width = `${widthPct}%`;
+            marker.textContent = entry.sign;
+            marker.title = `${entry.sign} at ${formatTime(entry.videoTime)} (${(entry.confidence * 100).toFixed(0)}%, ${entry.source})`;
+            marker.setAttribute('aria-label', marker.title);
+            els.timelineTrack.appendChild(marker);
+        });
+    }
+
+    function updatePlayhead() {
+        if (videoDuration <= 0) return;
+        const pct = (els.video.currentTime / videoDuration) * 100;
+        els.timelinePlayhead.style.left = `${pct}%`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Comparison + accuracy
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function getExpectedSigns() {
+        const raw = els.knownTranslation.value.trim();
+        if (!raw) return [];
+        return raw.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+    }
+
+    function updateComparison() {
+        const expected = getExpectedSigns();
+        if (expected.length === 0) {
+            els.comparisonSection.style.display = 'none';
+            els.metricsSection.style.display = 'none';
+            return;
+        }
+
+        els.comparisonSection.style.display = '';
+        els.metricsSection.style.display = '';
+
+        const recognised = recognisedSigns.map(e => e.sign.toUpperCase());
+        const metrics = computeMetrics(expected, recognised);
+
+        // Build comparison table
+        renderComparisonTable(expected, recognised, metrics);
+        renderMetrics(metrics);
+    }
+
+    function computeMetrics(expected, recognised) {
+        // Use a longest common subsequence approach for alignment
+        const lcs = longestCommonSubsequence(expected, recognised);
+        const matched = new Set();
+        const matchedRecognised = new Set();
+
+        // Mark matched positions
+        let ei = 0, ri = 0;
+        const matchPairs = [];
+        for (const item of lcs) {
+            while (ei < expected.length && expected[ei] !== item) ei++;
+            while (ri < recognised.length && recognised[ri] !== item) ri++;
+            if (ei < expected.length && ri < recognised.length) {
+                matchPairs.push({ expectedIdx: ei, recognisedIdx: ri, sign: item });
+                matched.add(ei);
+                matchedRecognised.add(ri);
+                ei++;
+                ri++;
+            }
+        }
+
+        const correct = matchPairs.length;
+        const missed = expected.length - correct;
+        const falsePositives = recognised.length - correct;
+        const total = expected.length;
+        const accuracy = total > 0 ? correct / total : 0;
+        const precision = recognised.length > 0 ? correct / recognised.length : 0;
+        const recall = expected.length > 0 ? correct / expected.length : 0;
+
+        return {
+            correct,
+            missed,
+            falsePositives,
+            total,
+            accuracy,
+            precision,
+            recall,
+            matchPairs,
+            matchedExpected: matched,
+            matchedRecognised: matchedRecognised,
+        };
+    }
+
+    function longestCommonSubsequence(a, b) {
+        const m = a.length, n = b.length;
+        const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (a[i - 1] === b[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+        // Backtrack
+        const result = [];
+        let i = m, j = n;
+        while (i > 0 && j > 0) {
+            if (a[i - 1] === b[j - 1]) {
+                result.unshift(a[i - 1]);
+                i--;
+                j--;
+            } else if (dp[i - 1][j] > dp[i][j - 1]) {
+                i--;
+            } else {
+                j--;
+            }
+        }
+        return result;
+    }
+
+    function renderComparisonTable(expected, recognised, metrics) {
+        const rows = [];
+
+        // Build an interleaved view
+        let ei = 0, ri = 0;
+        const pairs = metrics.matchPairs;
+        let pi = 0;
+
+        while (ei < expected.length || ri < recognised.length) {
+            if (pi < pairs.length) {
+                // Output any missed expected before this match
+                while (ei < pairs[pi].expectedIdx) {
+                    rows.push({ status: 'miss', expected: expected[ei], recognised: '--', time: '' });
+                    ei++;
+                }
+                // Output any false positives before this match
+                while (ri < pairs[pi].recognisedIdx) {
+                    const entry = recognisedSigns[ri];
+                    rows.push({
+                        status: 'extra',
+                        expected: '--',
+                        recognised: recognised[ri],
+                        time: entry ? formatTime(entry.videoTime) : '',
+                    });
+                    ri++;
+                }
+                // Output the match
+                const entry = recognisedSigns[pairs[pi].recognisedIdx];
+                rows.push({
+                    status: 'match',
+                    expected: expected[ei],
+                    recognised: recognised[ri],
+                    time: entry ? formatTime(entry.videoTime) : '',
+                });
+                ei++;
+                ri++;
+                pi++;
+            } else {
+                // Remaining expected
+                if (ei < expected.length) {
+                    rows.push({ status: 'miss', expected: expected[ei], recognised: '--', time: '' });
+                    ei++;
+                }
+                // Remaining recognised
+                if (ri < recognised.length) {
+                    const entry = recognisedSigns[ri];
+                    rows.push({
+                        status: 'extra',
+                        expected: '--',
+                        recognised: recognised[ri],
+                        time: entry ? formatTime(entry.videoTime) : '',
+                    });
+                    ri++;
+                }
+            }
+        }
+
+        els.comparisonBody.innerHTML = rows.map(row => {
+            const cls = row.status;
+            const icon = row.status === 'match' ? '&#10003;' :
+                         row.status === 'miss' ? '&#10007;' : '&#9888;';
+            return `<tr class="${cls}">
+                <td class="status-icon">${icon}</td>
+                <td>${escapeHtml(row.expected)}</td>
+                <td>${escapeHtml(row.recognised)}</td>
+                <td style="font-family: monospace; font-size: 0.75rem;">${row.time}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderMetrics(metrics) {
+        setMetric('metricAccuracy', `${(metrics.accuracy * 100).toFixed(0)}%`,
+            metrics.accuracy >= 0.7 ? 'good' : metrics.accuracy >= 0.4 ? 'ok' : 'bad');
+        setMetric('metricPrecision', `${(metrics.precision * 100).toFixed(0)}%`,
+            metrics.precision >= 0.7 ? 'good' : metrics.precision >= 0.4 ? 'ok' : 'bad');
+        setMetric('metricRecall', `${(metrics.recall * 100).toFixed(0)}%`,
+            metrics.recall >= 0.7 ? 'good' : metrics.recall >= 0.4 ? 'ok' : 'bad');
+        setMetric('metricCorrect', metrics.correct, 'good');
+        setMetric('metricFalsePos', metrics.falsePositives,
+            metrics.falsePositives === 0 ? 'good' : 'bad');
+        setMetric('metricMissed', metrics.missed,
+            metrics.missed === 0 ? 'good' : 'bad');
+    }
+
+    function setMetric(id, value, quality) {
+        const el = document.getElementById(id);
+        el.querySelector('.metric-value').textContent = value;
+        el.className = `metric-card metric-${quality}`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Diagnostics display
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function updateDiagnostics() {
+        if (typeof SignRecogniser === 'undefined') return;
+
+        const nmf = SignRecogniser.getNmfState();
+        const seg = SignRecogniser.getSegmentationState();
+
+        const nmfParts = [];
+        if (nmf.headNod) nmfParts.push('<span style="color: var(--success);">Head Nod</span>');
+        if (nmf.headShake) nmfParts.push('<span style="color: var(--error);">Head Shake</span>');
+        if (nmf.eyebrowRaise) nmfParts.push('<span style="color: var(--warning);">Eyebrow Raise</span>');
+        if (nmf.mouthOpen) nmfParts.push('<span style="color: var(--accent);">Mouth Open</span>');
+        if (nmf.headTilt > 0.01) nmfParts.push('Tilt Right');
+        if (nmf.headTilt < -0.01) nmfParts.push('Tilt Left');
+        els.nmfDisplay.innerHTML = nmfParts.length > 0 ? nmfParts.join(' &middot; ') :
+            '<span style="color: var(--text-secondary);">None detected</span>';
+
+        const segColor = {
+            IDLE: 'var(--text-secondary)',
+            ONSET: 'var(--warning)',
+            STROKE: 'var(--success)',
+            HOLD: 'var(--accent)',
+            RETRACTION: 'var(--text-secondary)',
+        }[seg.state] || 'var(--text-secondary)';
+
+        els.segDisplay.innerHTML = `
+            <span style="color: ${segColor}; font-weight: 600;">${seg.state}</span>
+            &middot; Frames: ${seg.segmentLength}
+            &middot; Peak vel: ${seg.peakVelocity.toFixed(3)}
+            &middot; Idle: ${seg.idleCounter}
+        `;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Video loading
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function loadVideoFromUrl(url) {
+        return new Promise((resolve, reject) => {
+            resetRecognition();
+            els.video.src = url;
+            els.video.load();
+            els.videoStatus.textContent = 'Loading video...';
+            els.videoStatus.className = 'test-video-status processing';
+
+            els.video.onloadedmetadata = () => {
+                videoDuration = els.video.duration;
+                els.canvas.width = els.video.videoWidth || 640;
+                els.canvas.height = els.video.videoHeight || 480;
+                els.progressScrubber.disabled = false;
+                els.playPauseBtn.disabled = false;
+                els.stepBackBtn.disabled = false;
+                els.stepFwdBtn.disabled = false;
+                els.processBtn.disabled = false;
+                els.videoStatus.textContent = `Ready (${els.video.videoWidth}x${els.video.videoHeight}, ${formatTime(videoDuration)})`;
+                els.videoStatus.className = 'test-video-status';
+                updateTimeDisplay();
+                resolve();
+            };
+
+            els.video.onerror = () => {
+                els.videoStatus.textContent = 'Failed to load video';
+                els.videoStatus.className = 'test-video-status';
+                reject(new Error('Video load failed'));
+            };
+        });
+    }
+
+    function loadVideoFromFile(file) {
+        const url = URL.createObjectURL(file);
+        return loadVideoFromUrl(url);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Frame-by-frame processing
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function drawVideoFrame(video, canvas, ctx) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        if (mirrorVideo) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(video, 0, 0);
+    }
+
+    async function processCurrentFrame() {
+        if (!holisticReady || !els.video.videoWidth) return;
+
+        const frameCanvas = document.createElement('canvas');
+        const frameCtx = frameCanvas.getContext('2d');
+        drawVideoFrame(els.video, frameCanvas, frameCtx);
+
+        await holistic.send({ image: frameCanvas });
+    }
+
+    function playbackLoop() {
+        if (!isPlaying) return;
+
+        updateTimeDisplay();
+        updatePlayhead();
+
+        // Process frame through MediaPipe
+        if (holisticReady && els.video.videoWidth && !els.video.paused) {
+            const frameCanvas = document.createElement('canvas');
+            const frameCtx = frameCanvas.getContext('2d');
+            drawVideoFrame(els.video, frameCanvas, frameCtx);
+
+            holistic.send({ image: frameCanvas }).catch(() => {});
+        }
+
+        animFrameId = requestAnimationFrame(playbackLoop);
+    }
+
+    async function processAllFrames() {
+        if (!holisticReady || !els.video.videoWidth || processAllMode) return;
+
+        processAllMode = true;
+        isPlaying = false;
+        els.video.pause();
+        updatePlayPauseButton();
+        els.processBtn.textContent = 'Processing...';
+        els.processBtn.disabled = true;
+        els.videoStatus.textContent = 'Processing all frames...';
+        els.videoStatus.className = 'test-video-status processing';
+
+        const fps = 30;
+        const frameInterval = 1 / fps;
+        const totalFrames = Math.ceil(videoDuration * fps);
+        let frameIndex = 0;
+
+        els.video.currentTime = 0;
+
+        const processNext = () => {
+            return new Promise((resolve) => {
+                if (frameIndex >= totalFrames || els.video.currentTime >= videoDuration) {
+                    resolve(true);
+                    return;
+                }
+
+                const targetTime = frameIndex * frameInterval;
+                els.video.currentTime = Math.min(targetTime, videoDuration);
+
+                els.video.onseeked = async () => {
+                    els.video.onseeked = null;
+
+                    const frameCanvas = document.createElement('canvas');
+                    const frameCtx = frameCanvas.getContext('2d');
+                    drawVideoFrame(els.video, frameCanvas, frameCtx);
+
+                    try {
+                        await holistic.send({ image: frameCanvas });
+                    } catch (e) {
+                        // Continue on error
+                    }
+
+                    frameIndex++;
+                    updateTimeDisplay();
+                    updatePlayhead();
+
+                    // Update status periodically
+                    if (frameIndex % 10 === 0) {
+                        els.videoStatus.textContent =
+                            `Processing: ${frameIndex}/${totalFrames} frames (${(frameIndex / totalFrames * 100).toFixed(0)}%)`;
+                    }
+
+                    resolve(false);
+                };
+            });
+        };
+
+        while (true) {
+            const done = await processNext();
+            if (done) break;
+        }
+
+        // Flush any in-progress segment that didn't complete before
+        // the video ended (e.g. sign was still in HOLD/STROKE state)
+        if (typeof SignRecogniser !== 'undefined' && SignRecogniser.flushSegment) {
+            SignRecogniser.flushSegment();
+        }
+
+        processAllMode = false;
+        els.processBtn.textContent = 'Process All';
+        els.processBtn.disabled = false;
+        els.videoStatus.textContent = `Processing complete (${totalFrames} frames)`;
+        els.videoStatus.className = 'test-video-status complete';
+
+        updateComparison();
+
+        if (processAllResolve) {
+            processAllResolve();
+            processAllResolve = null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Playback controls
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function togglePlayPause() {
+        if (els.video.paused || els.video.ended) {
+            els.video.play();
+            isPlaying = true;
+            animFrameId = requestAnimationFrame(playbackLoop);
+        } else {
+            els.video.pause();
+            isPlaying = false;
+            if (animFrameId) {
+                cancelAnimationFrame(animFrameId);
+                animFrameId = null;
+            }
+        }
+        updatePlayPauseButton();
+    }
+
+    function updatePlayPauseButton() {
+        if (els.video.paused || !isPlaying) {
+            els.playPauseIcon.innerHTML = '&#9654;';
+            els.playPauseLabel.textContent = 'Play';
+            els.playPauseBtn.setAttribute('aria-label', 'Play');
+        } else {
+            els.playPauseIcon.innerHTML = '&#9646;&#9646;';
+            els.playPauseLabel.textContent = 'Pause';
+            els.playPauseBtn.setAttribute('aria-label', 'Pause');
+        }
+    }
+
+    function stepFrame(direction) {
+        els.video.pause();
+        isPlaying = false;
+        if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+        }
+        updatePlayPauseButton();
+
+        const frameTime = 1 / 30;
+        els.video.currentTime = Math.max(0, Math.min(videoDuration,
+            els.video.currentTime + direction * frameTime));
+
+        els.video.onseeked = async () => {
+            els.video.onseeked = null;
+            await processCurrentFrame();
+            updateTimeDisplay();
+            updatePlayhead();
+        };
+    }
+
+    function setSpeed(speed) {
+        playbackSpeed = speed;
+        els.video.playbackRate = speed;
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+            const btnSpeed = parseFloat(btn.dataset.speed);
+            btn.classList.toggle('active', btnSpeed === speed);
+            btn.setAttribute('aria-checked', btnSpeed === speed ? 'true' : 'false');
+        });
+    }
+
+    function updateTimeDisplay() {
+        const current = els.video.currentTime || 0;
+        const total = videoDuration || 0;
+        els.timeDisplay.textContent = `${formatTime(current)} / ${formatTime(total)}`;
+        if (total > 0) {
+            els.progressScrubber.value = (current / total) * 1000;
+        }
+    }
+
+    function resetRecognition() {
+        recognisedSigns = [];
+        if (typeof SignRecogniser !== 'undefined') {
+            SignRecogniser.reset();
+            SignRecogniser.clearSentence();
+        }
+        updateSignsList();
+        updateComparison();
+        els.liveCaptionText.textContent = 'Waiting for video...';
+        els.liveCaptionConfidence.textContent = '';
+        // Clear timeline markers
+        const markers = els.timelineTrack.querySelectorAll('.timeline-marker');
+        markers.forEach(m => m.remove());
+        els.timelinePlayhead.style.left = '0';
+        canvasCtx.clearRect(0, 0, els.canvas.width, els.canvas.height);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Tab switching
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function switchTab(mode) {
+        document.querySelectorAll('.test-nav-modes .nav-btn').forEach(btn => {
+            const isActive = btn.dataset.mode === mode;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            btn.tabIndex = isActive ? 0 : -1;
+        });
+
+        document.getElementById('single-panel').hidden = mode !== 'single';
+        document.getElementById('batch-panel').hidden = mode !== 'batch';
+
+        if (mode === 'batch') {
+            document.getElementById('batch-panel').classList.add('active');
+        } else {
+            document.getElementById('batch-panel').classList.remove('active');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Batch test mode
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function runBatchTest() {
+        let testCases;
+        try {
+            testCases = JSON.parse(els.batchInput.value);
+            if (!Array.isArray(testCases) || testCases.length === 0) {
+                throw new Error('Must be a non-empty array');
+            }
+        } catch (e) {
+            alert('Invalid JSON configuration: ' + e.message);
+            return;
+        }
+
+        batchRunning = true;
+        batchAbort = false;
+        batchResults = [];
+
+        els.batchRunBtn.disabled = true;
+        els.batchStopBtn.disabled = false;
+        els.batchExportBtn.disabled = true;
+        els.batchProgressSection.style.display = '';
+        els.batchResultsSection.style.display = '';
+        els.batchAggregateSection.style.display = 'none';
+        els.batchResultsBody.innerHTML = '';
+
+        // Create a separate holistic instance for batch processing
+        const batchHolistic = new Holistic({
+            locateFile: (file) =>
+                `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/${file}`,
+        });
+
+        batchHolistic.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            smoothSegmentation: false,
+            refineFaceLandmarks: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+        });
+
+        for (let i = 0; i < testCases.length; i++) {
+            if (batchAbort) break;
+
+            const tc = testCases[i];
+            const expected = tc.expected ? tc.expected.split(',').map(s => s.trim().toUpperCase()).filter(s => s) : [];
+
+            els.batchProgressFill.style.width = `${((i) / testCases.length) * 100}%`;
+            els.batchProgressText.textContent = `Processing ${i + 1} / ${testCases.length}: ${tc.label || tc.url}`;
+
+            const startTime = performance.now();
+            let batchRecognised = [];
+
+            // Set up recognition for this test
+            const batchRecogniser = SignRecogniser;
+            batchRecogniser.reset();
+            batchRecogniser.clearSentence();
+
+            // DTW leave-one-out: exclude the expected sign from DTW matching
+            if (els.dtwEnabledChk.checked && els.dtwLeaveOneOutChk.checked && expected.length > 0) {
+                batchRecogniser.setDtwExclude(expected[0]);
+            } else {
+                batchRecogniser.setDtwExclude(null);
+            }
+
+            const prevCallback = null;
+            batchRecogniser.setCallback((data) => {
+                // Only count segment-based and NMF recognitions for batch accuracy.
+                // Continuous/landmarks per-frame recognition is too noisy for evaluation.
+                if (data.sign && data.sign !== '' &&
+                    (data.source === 'segment' || data.source === 'nmf')) {
+                    batchRecognised.push({
+                        sign: data.sign,
+                        confidence: data.confidence,
+                        source: data.source,
+                        videoTime: els.batchVideo.currentTime,
+                    });
+                }
+            });
+
+            // Set up holistic results handler with video timestamp
+            batchHolistic.onResults((results) => {
+                const videoTimeMs = (els.batchVideo.currentTime || 0) * 1000;
+                batchRecogniser.processLandmarks(results, videoTimeMs);
+            });
+
+            try {
+                // Load video
+                await new Promise((resolve, reject) => {
+                    els.batchVideo.src = tc.url;
+                    els.batchVideo.load();
+                    els.batchVideo.onloadedmetadata = resolve;
+                    els.batchVideo.onerror = () => reject(new Error('Load failed'));
+                    setTimeout(() => reject(new Error('Timeout')), 30000);
+                });
+
+                const batchDuration = els.batchVideo.duration;
+                const fps = 30; // Match single-mode FPS for accurate trajectory analysis
+                const frameInterval = 1 / fps;
+                const totalFrames = Math.ceil(batchDuration * fps);
+
+                // Process frames
+                for (let f = 0; f < totalFrames && !batchAbort; f++) {
+                    const targetTime = f * frameInterval;
+                    els.batchVideo.currentTime = Math.min(targetTime, batchDuration);
+
+                    await new Promise((resolve) => {
+                        els.batchVideo.onseeked = async () => {
+                            els.batchVideo.onseeked = null;
+                            const frameCanvas = els.batchCanvas;
+                            const frameCtx = frameCanvas.getContext('2d');
+                            drawVideoFrame(els.batchVideo, frameCanvas, frameCtx);
+
+                            try {
+                                await batchHolistic.send({ image: frameCanvas });
+                            } catch (e) {
+                                // Continue
+                            }
+                            resolve();
+                        };
+                    });
+                }
+
+                // Flush any in-progress segment
+                if (batchRecogniser.flushSegment) {
+                    batchRecogniser.flushSegment();
+                }
+
+                // ML classification: classify the last segment if ML is enabled
+                if (els.mlEnabledChk.checked && MLClassifier.isReady()) {
+                    const lastSeg = batchRecogniser.getLastSegment();
+                    if (lastSeg && lastSeg.length >= 3) {
+                        const mlResult = await MLClassifier.classify(lastSeg);
+                        if (mlResult) {
+                            const mode = els.mlModeSelect.value;
+                            if (mode === 'only') {
+                                // Replace categorical results entirely
+                                batchRecognised = [{
+                                    sign: mlResult.topSign,
+                                    confidence: mlResult.topConfidence,
+                                    source: 'ml',
+                                }];
+                            } else if (mode === 'override' && mlResult.topConfidence > 0.5) {
+                                // Override if ML is confident
+                                batchRecognised = [{
+                                    sign: mlResult.topSign,
+                                    confidence: mlResult.topConfidence,
+                                    source: 'ml',
+                                }];
+                            } else if (mode === 'blend' && batchRecognised.length > 0) {
+                                // Blend: if ML agrees with categorical top, boost confidence
+                                // If ML disagrees, use ML if ML confidence > 0.5
+                                const catTop = batchRecognised[0].sign;
+                                if (mlResult.topSign === catTop) {
+                                    batchRecognised[0].confidence = Math.max(
+                                        batchRecognised[0].confidence,
+                                        mlResult.topConfidence
+                                    );
+                                    batchRecognised[0].source = 'ml+cat';
+                                } else if (mlResult.topConfidence > 0.5) {
+                                    batchRecognised.unshift({
+                                        sign: mlResult.topSign,
+                                        confidence: mlResult.topConfidence,
+                                        source: 'ml',
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                const elapsed = performance.now() - startTime;
+                const recognised = batchRecognised.map(e => e.sign.toUpperCase());
+                const metrics = computeMetrics(expected, recognised);
+
+                const result = {
+                    index: i,
+                    url: tc.url,
+                    label: tc.label || tc.url,
+                    expected,
+                    recognised,
+                    metrics,
+                    elapsed,
+                    error: null,
+                };
+
+                batchResults.push(result);
+                appendBatchRow(result);
+
+            } catch (err) {
+                const result = {
+                    index: i,
+                    url: tc.url,
+                    label: tc.label || tc.url,
+                    expected,
+                    recognised: [],
+                    metrics: computeMetrics(expected, []),
+                    elapsed: performance.now() - startTime,
+                    error: err.message,
+                };
+                batchResults.push(result);
+                appendBatchRow(result);
+            }
+
+            // Reset for next
+            batchRecogniser.reset();
+            batchRecogniser.clearSentence();
+        }
+
+        // Restore original callback
+        SignRecogniser.setCallback(onSignRecognised);
+
+        // Cleanup
+        batchHolistic.close();
+
+        els.batchProgressFill.style.width = '100%';
+        els.batchProgressText.textContent = batchAbort
+            ? `Stopped after ${batchResults.length} / ${testCases.length} videos`
+            : `Complete: ${testCases.length} videos processed`;
+
+        // Show aggregate
+        showBatchAggregate();
+
+        batchRunning = false;
+        els.batchRunBtn.disabled = false;
+        els.batchStopBtn.disabled = true;
+        els.batchExportBtn.disabled = false;
+    }
+
+    function appendBatchRow(result) {
+        const acc = (result.metrics.accuracy * 100).toFixed(0);
+        const statusClass = result.error ? 'status-fail' :
+                            result.metrics.accuracy >= 0.5 ? 'status-pass' : 'status-partial';
+        const statusText = result.error ? 'Error' :
+                           result.metrics.accuracy >= 0.5 ? 'Pass' : 'Fail';
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${result.index + 1}</td>
+            <td title="${escapeHtml(result.url)}">${escapeHtml(result.label)}</td>
+            <td>${escapeHtml(result.expected.join(', '))}</td>
+            <td>${escapeHtml(result.recognised.join(', ')) || (result.error ? escapeHtml(result.error) : 'None')}</td>
+            <td>${result.error ? '--' : acc + '%'}</td>
+            <td class="${statusClass}">${statusText}</td>
+        `;
+        els.batchResultsBody.appendChild(row);
+    }
+
+    function showBatchAggregate() {
+        els.batchAggregateSection.style.display = '';
+
+        const validResults = batchResults.filter(r => !r.error);
+        const totalCorrect = validResults.reduce((s, r) => s + r.metrics.correct, 0);
+        const totalExpected = validResults.reduce((s, r) => s + r.metrics.total, 0);
+        const totalRecognised = validResults.reduce((s, r) => s + r.metrics.correct + r.metrics.falsePositives, 0);
+        const totalElapsed = validResults.reduce((s, r) => s + r.elapsed, 0);
+        const passed = validResults.filter(r => r.metrics.accuracy >= 0.5).length;
+
+        const overallAccuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
+        const overallPrecision = totalRecognised > 0 ? totalCorrect / totalRecognised : 0;
+        const overallRecall = totalExpected > 0 ? totalCorrect / totalExpected : 0;
+        const avgTime = validResults.length > 0 ? totalElapsed / validResults.length : 0;
+
+        setMetric('batchMetricAccuracy', `${(overallAccuracy * 100).toFixed(0)}%`,
+            overallAccuracy >= 0.7 ? 'good' : overallAccuracy >= 0.4 ? 'ok' : 'bad');
+        setMetric('batchMetricPrecision', `${(overallPrecision * 100).toFixed(0)}%`,
+            overallPrecision >= 0.7 ? 'good' : overallPrecision >= 0.4 ? 'ok' : 'bad');
+        setMetric('batchMetricRecall', `${(overallRecall * 100).toFixed(0)}%`,
+            overallRecall >= 0.7 ? 'good' : overallRecall >= 0.4 ? 'ok' : 'bad');
+        setMetric('batchMetricTotal', batchResults.length, 'good');
+        setMetric('batchMetricPassed', `${passed}/${validResults.length}`,
+            passed === validResults.length ? 'good' : passed > 0 ? 'ok' : 'bad');
+        setMetric('batchMetricAvgTime', `${(avgTime / 1000).toFixed(1)}s`, 'good');
+    }
+
+    function exportBatchCsv() {
+        if (batchResults.length === 0) return;
+
+        const headers = ['Index', 'Label', 'URL', 'Expected', 'Recognised', 'Correct', 'Missed',
+                         'False Positives', 'Accuracy', 'Precision', 'Recall', 'Time (s)', 'Error'];
+        const rows = batchResults.map(r => [
+            r.index + 1,
+            r.label,
+            r.url,
+            r.expected.join('; '),
+            r.recognised.join('; '),
+            r.metrics.correct,
+            r.metrics.missed,
+            r.metrics.falsePositives,
+            (r.metrics.accuracy * 100).toFixed(1),
+            (r.metrics.precision * 100).toFixed(1),
+            (r.metrics.recall * 100).toFixed(1),
+            (r.elapsed / 1000).toFixed(1),
+            r.error || '',
+        ]);
+
+        const csv = [headers, ...rows].map(row =>
+            row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bsl-batch-results-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DTW Template Recording & Management
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Record DTW templates by processing all test videos through MediaPipe
+     * and capturing the smoothed landmark sequences.
+     */
+    async function recordDtwTemplates() {
+        let testCases;
+        try {
+            testCases = JSON.parse(els.batchInput.value);
+            if (!Array.isArray(testCases) || testCases.length === 0) {
+                throw new Error('Must be a non-empty array');
+            }
+        } catch (e) {
+            alert('Load the test suite first (click "Load 119-Sign Test Suite"), then record templates.');
+            return;
+        }
+
+        els.dtwRecordBtn.disabled = true;
+        els.dtwRecordBtn.textContent = 'Recording...';
+        els.batchProgressSection.style.display = '';
+        els.batchResultsSection.style.display = 'none';
+        els.batchAggregateSection.style.display = 'none';
+
+        // Create holistic instance for recording
+        const recHolistic = new Holistic({
+            locateFile: (file) =>
+                `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/${file}`,
+        });
+        recHolistic.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            smoothSegmentation: false,
+            refineFaceLandmarks: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+        });
+
+        let recorded = 0;
+        let failed = 0;
+
+        for (let i = 0; i < testCases.length; i++) {
+            const tc = testCases[i];
+            const signName = (tc.expected || tc.label || '').toUpperCase().trim();
+            if (!signName) { failed++; continue; }
+
+            els.batchProgressFill.style.width = `${(i / testCases.length) * 100}%`;
+            els.batchProgressText.textContent = `Recording ${i + 1} / ${testCases.length}: ${signName}`;
+
+            // Reset recogniser to clear buffer
+            SignRecogniser.reset();
+            SignRecogniser.clearSentence();
+
+            // Feed frames through holistic
+            recHolistic.onResults((results) => {
+                const videoTimeMs = (els.batchVideo.currentTime || 0) * 1000;
+                SignRecogniser.processLandmarks(results, videoTimeMs);
+            });
+
+            try {
+                await new Promise((resolve, reject) => {
+                    els.batchVideo.src = tc.url;
+                    els.batchVideo.load();
+                    els.batchVideo.onloadedmetadata = resolve;
+                    els.batchVideo.onerror = () => reject(new Error('Load failed'));
+                    setTimeout(() => reject(new Error('Timeout')), 30000);
+                });
+
+                const duration = els.batchVideo.duration;
+                const fps = 30;
+                const frameInterval = 1 / fps;
+                const totalFrames = Math.ceil(duration * fps);
+
+                for (let f = 0; f < totalFrames; f++) {
+                    const targetTime = f * frameInterval;
+                    els.batchVideo.currentTime = Math.min(targetTime, duration);
+
+                    await new Promise((resolve) => {
+                        els.batchVideo.onseeked = async () => {
+                            els.batchVideo.onseeked = null;
+                            const frameCanvas = els.batchCanvas;
+                            const frameCtx = frameCanvas.getContext('2d');
+                            drawVideoFrame(els.batchVideo, frameCanvas, frameCtx);
+                            try {
+                                await recHolistic.send({ image: frameCanvas });
+                            } catch (e) { /* continue */ }
+                            resolve();
+                        };
+                    });
+                }
+
+                // Flush any pending segment and capture the segmented stroke
+                SignRecogniser.flushSegment();
+                const segment = SignRecogniser.getLastSegment();
+                if (segment && SignRecogniser.registerSegmentTemplate(signName, segment)) {
+                    recorded++;
+                    console.log(`[DTW Record] Recorded ${signName}: ${segment.length} segment frames`);
+                } else {
+                    // Fallback: use smoothed buffer with old method
+                    const buffer = SignRecogniser.getSmoothedBuffer();
+                    if (SignRecogniser.registerTemplate(signName, buffer)) {
+                        recorded++;
+                        console.log(`[DTW Record] Recorded ${signName}: ${buffer.length} buffer frames (fallback)`);
+                    } else {
+                        failed++;
+                        console.warn(`[DTW Record] Failed to register template for ${signName} (insufficient frames)`);
+                    }
+                }
+
+            } catch (err) {
+                failed++;
+                console.error(`[DTW Record] Error recording ${signName}:`, err.message);
+            }
+
+            SignRecogniser.reset();
+            SignRecogniser.clearSentence();
+        }
+
+        recHolistic.close();
+
+        els.batchProgressFill.style.width = '100%';
+        els.batchProgressText.textContent = `Template recording complete: ${recorded} recorded, ${failed} failed`;
+        els.dtwRecordBtn.disabled = false;
+        els.dtwRecordBtn.textContent = 'Record Templates';
+        els.dtwSaveBtn.disabled = false;
+        updateDtwStatus();
+
+        // Auto-enable DTW
+        els.dtwEnabledChk.checked = true;
+        SignRecogniser.setDtwEnabled(true);
+    }
+
+    function saveDtwTemplates() {
+        const data = SignRecogniser.exportDtwTemplates();
+        const json = JSON.stringify(data);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bsl-dtw-templates-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function loadDtwTemplatesFromFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const data = JSON.parse(reader.result);
+                SignRecogniser.importDtwTemplates(data);
+                els.dtwSaveBtn.disabled = false;
+                els.dtwEnabledChk.checked = true;
+                SignRecogniser.setDtwEnabled(true);
+                updateDtwStatus();
+            } catch (err) {
+                alert('Failed to load templates: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        // Reset file input so the same file can be loaded again
+        e.target.value = '';
+    }
+
+    function updateDtwStatus() {
+        const data = SignRecogniser.exportDtwTemplates();
+        const count = data.templateCount || 0;
+        const total = Object.values(data.templates || {}).reduce((s, t) => s + t.length, 0);
+        els.dtwStatus.textContent = count > 0
+            ? `${count} signs, ${total} templates loaded`
+            : 'No templates loaded';
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Utility
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Populate pre-loaded videos
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function populatePreloadedVideos() {
+        els.preloadedVideos.innerHTML = PRELOADED_VIDEOS.map((v, i) =>
+            `<button class="preloaded-btn" data-index="${i}" role="option"
+                     aria-label="Load ${escapeHtml(v.label)}">${escapeHtml(v.label)}</button>`
+        ).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Event listeners
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function setupEventListeners() {
+        // Tab switching
+        document.querySelectorAll('.test-nav-modes .nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.mode));
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                    const tabs = [...document.querySelectorAll('.test-nav-modes .nav-btn')];
+                    const idx = tabs.indexOf(btn);
+                    const next = e.key === 'ArrowRight'
+                        ? tabs[(idx + 1) % tabs.length]
+                        : tabs[(idx - 1 + tabs.length) % tabs.length];
+                    next.click();
+                    next.focus();
+                }
+            });
+        });
+
+        // Load video from URL
+        els.loadVideoBtn.addEventListener('click', () => {
+            const url = els.videoUrlInput.value.trim();
+            if (url) loadVideoFromUrl(url).catch(err => console.error(err));
+        });
+
+        els.videoUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                els.loadVideoBtn.click();
+            }
+        });
+
+        // Load video from file
+        els.videoFileInput.addEventListener('change', () => {
+            const file = els.videoFileInput.files[0];
+            if (file) loadVideoFromFile(file).catch(err => console.error(err));
+        });
+
+        // Allow file upload label to respond to keyboard
+        document.querySelector('.btn-file-upload').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                els.videoFileInput.click();
+            }
+        });
+
+        // Pre-loaded videos
+        els.preloadedVideos.addEventListener('click', (e) => {
+            const btn = e.target.closest('.preloaded-btn');
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.index, 10);
+            const video = PRELOADED_VIDEOS[idx];
+            if (!video) return;
+
+            // Update active state
+            els.preloadedVideos.querySelectorAll('.preloaded-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Set URL and known translation
+            els.videoUrlInput.value = video.url;
+            els.knownTranslation.value = video.expected;
+
+            loadVideoFromUrl(video.url).catch(err => console.error(err));
+        });
+
+        // Playback controls
+        els.playPauseBtn.addEventListener('click', togglePlayPause);
+        els.stepBackBtn.addEventListener('click', () => stepFrame(-1));
+        els.stepFwdBtn.addEventListener('click', () => stepFrame(1));
+        els.processBtn.addEventListener('click', () => processAllFrames());
+
+        // Dominant hand toggle (mirrors video for pre-recorded content)
+        const domHandBtn = document.getElementById('domHandBtn');
+        const domHandLabel = document.getElementById('domHandLabel');
+        if (domHandBtn) {
+            domHandBtn.addEventListener('click', () => {
+                mirrorVideo = !mirrorVideo;
+                domHandLabel.textContent = mirrorVideo ? 'Right' : 'Left';
+                domHandBtn.setAttribute('aria-label',
+                    `Dominant hand: ${mirrorVideo ? 'Right' : 'Left'} (mirror ${mirrorVideo ? 'on' : 'off'})`);
+                domHandBtn.classList.toggle('active', mirrorVideo);
+            });
+            domHandBtn.classList.add('active');
+        }
+
+        // Speed buttons
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => setSpeed(parseFloat(btn.dataset.speed)));
+        });
+
+        // Progress scrubber
+        els.progressScrubber.addEventListener('input', () => {
+            if (videoDuration <= 0) return;
+            const t = (els.progressScrubber.value / 1000) * videoDuration;
+            els.video.currentTime = t;
+            updateTimeDisplay();
+            updatePlayhead();
+        });
+
+        els.progressScrubber.addEventListener('change', async () => {
+            if (!isPlaying) {
+                await processCurrentFrame();
+            }
+        });
+
+        // Video events
+        els.video.addEventListener('ended', () => {
+            isPlaying = false;
+            if (animFrameId) {
+                cancelAnimationFrame(animFrameId);
+                animFrameId = null;
+            }
+            updatePlayPauseButton();
+            updateComparison();
+        });
+
+        els.video.addEventListener('timeupdate', () => {
+            updateTimeDisplay();
+            updatePlayhead();
+        });
+
+        // Known translation changes trigger comparison update
+        els.knownTranslation.addEventListener('input', () => {
+            updateComparison();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Do not capture when typing in inputs
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            switch (e.key) {
+                case ' ':
+                    e.preventDefault();
+                    if (!els.playPauseBtn.disabled) togglePlayPause();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (!els.stepBackBtn.disabled) stepFrame(-1);
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (!els.stepFwdBtn.disabled) stepFrame(1);
+                    break;
+                case 'r':
+                case 'R':
+                    if (!e.ctrlKey && !e.metaKey) resetRecognition();
+                    break;
+            }
+        });
+
+        // Batch controls
+        document.getElementById('batchLoadPresetBtn').addEventListener('click', async () => {
+            try {
+                const resp = await fetch('test-config.json');
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const config = await resp.json();
+                els.batchInput.value = JSON.stringify(config, null, 2);
+                document.getElementById('batchLoadPresetBtn').textContent = `Loaded ${config.length} tests`;
+            } catch (e) {
+                alert('Failed to load test config: ' + e.message);
+            }
+        });
+        els.batchRunBtn.addEventListener('click', () => runBatchTest());
+        els.batchStopBtn.addEventListener('click', () => { batchAbort = true; });
+        els.batchExportBtn.addEventListener('click', () => exportBatchCsv());
+
+        // DTW controls
+        els.dtwRecordBtn.addEventListener('click', () => recordDtwTemplates());
+        els.dtwSaveBtn.addEventListener('click', () => saveDtwTemplates());
+        els.dtwLoadBtn.addEventListener('click', () => els.dtwFileInput.click());
+        els.dtwFileInput.addEventListener('change', (e) => loadDtwTemplatesFromFile(e));
+        els.dtwEnabledChk.addEventListener('change', () => {
+            SignRecogniser.setDtwEnabled(els.dtwEnabledChk.checked);
+        });
+
+        // ML controls
+        els.mlLoadBtn.addEventListener('click', async () => {
+            els.mlStatus.textContent = 'Loading model...';
+            const ok = await MLClassifier.init('bsl_classifier.onnx', 'model_metadata.json');
+            if (ok) {
+                SignRecogniser.setMlClassifier(MLClassifier);
+                els.mlEnabledChk.disabled = false;
+                els.mlModeSelect.disabled = false;
+                els.mlEnabledChk.checked = true;
+                SignRecogniser.setMlEnabled(true);
+                els.mlStatus.textContent = `Model loaded (${MLClassifier.isReady() ? 'ready' : 'error'})`;
+            } else {
+                els.mlStatus.textContent = 'Failed to load model';
+            }
+        });
+        els.mlEnabledChk.addEventListener('change', () => {
+            SignRecogniser.setMlEnabled(els.mlEnabledChk.checked);
+        });
+        els.mlModeSelect.addEventListener('change', () => {
+            SignRecogniser.setMlMode(els.mlModeSelect.value);
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Initialisation
+    // ═══════════════════════════════════════════════════════════════════════
+
+    async function init() {
+        populatePreloadedVideos();
+        setupEventListeners();
+
+        // Set up sign recogniser callback
+        if (typeof SignRecogniser !== 'undefined') {
+            SignRecogniser.setCallback(onSignRecognised);
+        }
+
+        // Load MediaPipe
+        await initHolistic();
+    }
+
+    init();
+
+    </script>
+</body>
+</html>

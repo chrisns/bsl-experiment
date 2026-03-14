@@ -1,0 +1,597 @@
+[
+  {
+    "url": "test-videos/AFTERNOON.mp4",
+    "label": "AFTERNOON",
+    "expected": "AFTERNOON"
+  },
+  {
+    "url": "test-videos/AGAIN.mp4",
+    "label": "AGAIN",
+    "expected": "AGAIN"
+  },
+  {
+    "url": "test-videos/ANSWER.mp4",
+    "label": "ANSWER",
+    "expected": "ANSWER"
+  },
+  {
+    "url": "test-videos/BAD.mp4",
+    "label": "BAD",
+    "expected": "BAD"
+  },
+  {
+    "url": "test-videos/BEAUTIFUL.mp4",
+    "label": "BEAUTIFUL",
+    "expected": "BEAUTIFUL"
+  },
+  {
+    "url": "test-videos/BIG.mp4",
+    "label": "BIG",
+    "expected": "BIG"
+  },
+  {
+    "url": "test-videos/BLACK.mp4",
+    "label": "BLACK",
+    "expected": "BLACK"
+  },
+  {
+    "url": "test-videos/BLUE.mp4",
+    "label": "BLUE",
+    "expected": "BLUE"
+  },
+  {
+    "url": "test-videos/BOOK.mp4",
+    "label": "BOOK",
+    "expected": "BOOK"
+  },
+  {
+    "url": "test-videos/BOY.mp4",
+    "label": "BOY",
+    "expected": "BOY"
+  },
+  {
+    "url": "test-videos/BUS.mp4",
+    "label": "BUS",
+    "expected": "BUS"
+  },
+  {
+    "url": "test-videos/CAR.mp4",
+    "label": "CAR",
+    "expected": "CAR"
+  },
+  {
+    "url": "test-videos/CAT.mp4",
+    "label": "CAT",
+    "expected": "CAT"
+  },
+  {
+    "url": "test-videos/CHILD.mp4",
+    "label": "CHILD",
+    "expected": "CHILD"
+  },
+  {
+    "url": "test-videos/CLEAN.mp4",
+    "label": "CLEAN",
+    "expected": "CLEAN"
+  },
+  {
+    "url": "test-videos/CLOSE.mp4",
+    "label": "CLOSE",
+    "expected": "CLOSE"
+  },
+  {
+    "url": "test-videos/COFFEE.mp4",
+    "label": "COFFEE",
+    "expected": "COFFEE"
+  },
+  {
+    "url": "test-videos/COLD.mp4",
+    "label": "COLD",
+    "expected": "COLD"
+  },
+  {
+    "url": "test-videos/COME.mp4",
+    "label": "COME",
+    "expected": "COME"
+  },
+  {
+    "url": "test-videos/COMPUTER.mp4",
+    "label": "COMPUTER",
+    "expected": "COMPUTER"
+  },
+  {
+    "url": "test-videos/CORRECT.mp4",
+    "label": "CORRECT",
+    "expected": "CORRECT"
+  },
+  {
+    "url": "test-videos/DEAF.mp4",
+    "label": "DEAF",
+    "expected": "DEAF"
+  },
+  {
+    "url": "test-videos/DIFFERENT.mp4",
+    "label": "DIFFERENT",
+    "expected": "DIFFERENT"
+  },
+  {
+    "url": "test-videos/DOCTOR.mp4",
+    "label": "DOCTOR",
+    "expected": "DOCTOR"
+  },
+  {
+    "url": "test-videos/DOG.mp4",
+    "label": "DOG",
+    "expected": "DOG"
+  },
+  {
+    "url": "test-videos/DRINK.mp4",
+    "label": "DRINK",
+    "expected": "DRINK"
+  },
+  {
+    "url": "test-videos/EAT.mp4",
+    "label": "EAT",
+    "expected": "EAT"
+  },
+  {
+    "url": "test-videos/EVENING.mp4",
+    "label": "EVENING",
+    "expected": "EVENING"
+  },
+  {
+    "url": "test-videos/FAMILY.mp4",
+    "label": "FAMILY",
+    "expected": "FAMILY"
+  },
+  {
+    "url": "test-videos/FATHER.mp4",
+    "label": "FATHER",
+    "expected": "FATHER"
+  },
+  {
+    "url": "test-videos/FINISH.mp4",
+    "label": "FINISH",
+    "expected": "FINISH"
+  },
+  {
+    "url": "test-videos/FOOD.mp4",
+    "label": "FOOD",
+    "expected": "FOOD"
+  },
+  {
+    "url": "test-videos/FREE.mp4",
+    "label": "FREE",
+    "expected": "FREE"
+  },
+  {
+    "url": "test-videos/FRIEND.mp4",
+    "label": "FRIEND",
+    "expected": "FRIEND"
+  },
+  {
+    "url": "test-videos/GIRL.mp4",
+    "label": "GIRL",
+    "expected": "GIRL"
+  },
+  {
+    "url": "test-videos/GO.mp4",
+    "label": "GO",
+    "expected": "GO"
+  },
+  {
+    "url": "test-videos/GOOD.mp4",
+    "label": "GOOD",
+    "expected": "GOOD"
+  },
+  {
+    "url": "test-videos/GOODBYE.mp4",
+    "label": "GOODBYE",
+    "expected": "GOODBYE"
+  },
+  {
+    "url": "test-videos/GREEN.mp4",
+    "label": "GREEN",
+    "expected": "GREEN"
+  },
+  {
+    "url": "test-videos/HAPPY.mp4",
+    "label": "HAPPY",
+    "expected": "HAPPY"
+  },
+  {
+    "url": "test-videos/HEARING.mp4",
+    "label": "HEARING",
+    "expected": "HEARING"
+  },
+  {
+    "url": "test-videos/HELLO.mp4",
+    "label": "HELLO",
+    "expected": "HELLO"
+  },
+  {
+    "url": "test-videos/HELP.mp4",
+    "label": "HELP",
+    "expected": "HELP"
+  },
+  {
+    "url": "test-videos/HOSPITAL.mp4",
+    "label": "HOSPITAL",
+    "expected": "HOSPITAL"
+  },
+  {
+    "url": "test-videos/HOT.mp4",
+    "label": "HOT",
+    "expected": "HOT"
+  },
+  {
+    "url": "test-videos/HOUSE.mp4",
+    "label": "HOUSE",
+    "expected": "HOUSE"
+  },
+  {
+    "url": "test-videos/HOW.mp4",
+    "label": "HOW",
+    "expected": "HOW"
+  },
+  {
+    "url": "test-videos/HUNGRY.mp4",
+    "label": "HUNGRY",
+    "expected": "HUNGRY"
+  },
+  {
+    "url": "test-videos/IMPORTANT.mp4",
+    "label": "IMPORTANT",
+    "expected": "IMPORTANT"
+  },
+  {
+    "url": "test-videos/KNOW.mp4",
+    "label": "KNOW",
+    "expected": "KNOW"
+  },
+  {
+    "url": "test-videos/LANGUAGE.mp4",
+    "label": "LANGUAGE",
+    "expected": "LANGUAGE"
+  },
+  {
+    "url": "test-videos/LEARN.mp4",
+    "label": "LEARN",
+    "expected": "LEARN"
+  },
+  {
+    "url": "test-videos/LIKE.mp4",
+    "label": "LIKE",
+    "expected": "LIKE"
+  },
+  {
+    "url": "test-videos/LOVE.mp4",
+    "label": "LOVE",
+    "expected": "LOVE"
+  },
+  {
+    "url": "test-videos/MAN.mp4",
+    "label": "MAN",
+    "expected": "MAN"
+  },
+  {
+    "url": "test-videos/MEETING.mp4",
+    "label": "MEETING",
+    "expected": "MEETING"
+  },
+  {
+    "url": "test-videos/MILK.mp4",
+    "label": "MILK",
+    "expected": "MILK"
+  },
+  {
+    "url": "test-videos/MONEY.mp4",
+    "label": "MONEY",
+    "expected": "MONEY"
+  },
+  {
+    "url": "test-videos/MONTH.mp4",
+    "label": "MONTH",
+    "expected": "MONTH"
+  },
+  {
+    "url": "test-videos/MORE.mp4",
+    "label": "MORE",
+    "expected": "MORE"
+  },
+  {
+    "url": "test-videos/MORNING.mp4",
+    "label": "MORNING",
+    "expected": "MORNING"
+  },
+  {
+    "url": "test-videos/MOTHER.mp4",
+    "label": "MOTHER",
+    "expected": "MOTHER"
+  },
+  {
+    "url": "test-videos/NAME.mp4",
+    "label": "NAME",
+    "expected": "NAME"
+  },
+  {
+    "url": "test-videos/NEW.mp4",
+    "label": "NEW",
+    "expected": "NEW"
+  },
+  {
+    "url": "test-videos/NICE-TO-MEET-YOU.mp4",
+    "label": "NICE-TO-MEET-YOU",
+    "expected": "NICE-TO-MEET-YOU"
+  },
+  {
+    "url": "test-videos/NIGHT.mp4",
+    "label": "NIGHT",
+    "expected": "NIGHT"
+  },
+  {
+    "url": "test-videos/NO.mp4",
+    "label": "NO",
+    "expected": "NO"
+  },
+  {
+    "url": "test-videos/NUMBER.mp4",
+    "label": "NUMBER",
+    "expected": "NUMBER"
+  },
+  {
+    "url": "test-videos/OLD.mp4",
+    "label": "OLD",
+    "expected": "OLD"
+  },
+  {
+    "url": "test-videos/OPEN.mp4",
+    "label": "OPEN",
+    "expected": "OPEN"
+  },
+  {
+    "url": "test-videos/PAIN.mp4",
+    "label": "PAIN",
+    "expected": "PAIN"
+  },
+  {
+    "url": "test-videos/PHONE.mp4",
+    "label": "PHONE",
+    "expected": "PHONE"
+  },
+  {
+    "url": "test-videos/PLEASE.mp4",
+    "label": "PLEASE",
+    "expected": "PLEASE"
+  },
+  {
+    "url": "test-videos/POLICE.mp4",
+    "label": "POLICE",
+    "expected": "POLICE"
+  },
+  {
+    "url": "test-videos/PROBLEM.mp4",
+    "label": "PROBLEM",
+    "expected": "PROBLEM"
+  },
+  {
+    "url": "test-videos/QUESTION.mp4",
+    "label": "QUESTION",
+    "expected": "QUESTION"
+  },
+  {
+    "url": "test-videos/RED.mp4",
+    "label": "RED",
+    "expected": "RED"
+  },
+  {
+    "url": "test-videos/RUN.mp4",
+    "label": "RUN",
+    "expected": "RUN"
+  },
+  {
+    "url": "test-videos/SAD.mp4",
+    "label": "SAD",
+    "expected": "SAD"
+  },
+  {
+    "url": "test-videos/SAME.mp4",
+    "label": "SAME",
+    "expected": "SAME"
+  },
+  {
+    "url": "test-videos/SCHOOL.mp4",
+    "label": "SCHOOL",
+    "expected": "SCHOOL"
+  },
+  {
+    "url": "test-videos/SICK.mp4",
+    "label": "SICK",
+    "expected": "SICK"
+  },
+  {
+    "url": "test-videos/SIGN.mp4",
+    "label": "SIGN",
+    "expected": "SIGN"
+  },
+  {
+    "url": "test-videos/SIT.mp4",
+    "label": "SIT",
+    "expected": "SIT"
+  },
+  {
+    "url": "test-videos/SLEEP.mp4",
+    "label": "SLEEP",
+    "expected": "SLEEP"
+  },
+  {
+    "url": "test-videos/SMALL.mp4",
+    "label": "SMALL",
+    "expected": "SMALL"
+  },
+  {
+    "url": "test-videos/SORRY.mp4",
+    "label": "SORRY",
+    "expected": "SORRY"
+  },
+  {
+    "url": "test-videos/STAND.mp4",
+    "label": "STAND",
+    "expected": "STAND"
+  },
+  {
+    "url": "test-videos/START.mp4",
+    "label": "START",
+    "expected": "START"
+  },
+  {
+    "url": "test-videos/STOP.mp4",
+    "label": "STOP",
+    "expected": "STOP"
+  },
+  {
+    "url": "test-videos/TEA.mp4",
+    "label": "TEA",
+    "expected": "TEA"
+  },
+  {
+    "url": "test-videos/TEACHER.mp4",
+    "label": "TEACHER",
+    "expected": "TEACHER"
+  },
+  {
+    "url": "test-videos/THANK-YOU.mp4",
+    "label": "THANK-YOU",
+    "expected": "THANK-YOU"
+  },
+  {
+    "url": "test-videos/THIRSTY.mp4",
+    "label": "THIRSTY",
+    "expected": "THIRSTY"
+  },
+  {
+    "url": "test-videos/TIRED.mp4",
+    "label": "TIRED",
+    "expected": "TIRED"
+  },
+  {
+    "url": "test-videos/TODAY.mp4",
+    "label": "TODAY",
+    "expected": "TODAY"
+  },
+  {
+    "url": "test-videos/TOMORROW.mp4",
+    "label": "TOMORROW",
+    "expected": "TOMORROW"
+  },
+  {
+    "url": "test-videos/TRAIN.mp4",
+    "label": "TRAIN",
+    "expected": "TRAIN"
+  },
+  {
+    "url": "test-videos/UGLY.mp4",
+    "label": "UGLY",
+    "expected": "UGLY"
+  },
+  {
+    "url": "test-videos/UNDERSTAND.mp4",
+    "label": "UNDERSTAND",
+    "expected": "UNDERSTAND"
+  },
+  {
+    "url": "test-videos/WAIT.mp4",
+    "label": "WAIT",
+    "expected": "WAIT"
+  },
+  {
+    "url": "test-videos/WALK.mp4",
+    "label": "WALK",
+    "expected": "WALK"
+  },
+  {
+    "url": "test-videos/WANT.mp4",
+    "label": "WANT",
+    "expected": "WANT"
+  },
+  {
+    "url": "test-videos/WATER.mp4",
+    "label": "WATER",
+    "expected": "WATER"
+  },
+  {
+    "url": "test-videos/WEEK.mp4",
+    "label": "WEEK",
+    "expected": "WEEK"
+  },
+  {
+    "url": "test-videos/WELCOME.mp4",
+    "label": "WELCOME",
+    "expected": "WELCOME"
+  },
+  {
+    "url": "test-videos/WHAT.mp4",
+    "label": "WHAT",
+    "expected": "WHAT"
+  },
+  {
+    "url": "test-videos/WHEN.mp4",
+    "label": "WHEN",
+    "expected": "WHEN"
+  },
+  {
+    "url": "test-videos/WHERE.mp4",
+    "label": "WHERE",
+    "expected": "WHERE"
+  },
+  {
+    "url": "test-videos/WHITE.mp4",
+    "label": "WHITE",
+    "expected": "WHITE"
+  },
+  {
+    "url": "test-videos/WHO.mp4",
+    "label": "WHO",
+    "expected": "WHO"
+  },
+  {
+    "url": "test-videos/WHY.mp4",
+    "label": "WHY",
+    "expected": "WHY"
+  },
+  {
+    "url": "test-videos/WOMAN.mp4",
+    "label": "WOMAN",
+    "expected": "WOMAN"
+  },
+  {
+    "url": "test-videos/WORK.mp4",
+    "label": "WORK",
+    "expected": "WORK"
+  },
+  {
+    "url": "test-videos/WRONG.mp4",
+    "label": "WRONG",
+    "expected": "WRONG"
+  },
+  {
+    "url": "test-videos/YEAR.mp4",
+    "label": "YEAR",
+    "expected": "YEAR"
+  },
+  {
+    "url": "test-videos/YELLOW.mp4",
+    "label": "YELLOW",
+    "expected": "YELLOW"
+  },
+  {
+    "url": "test-videos/YES.mp4",
+    "label": "YES",
+    "expected": "YES"
+  },
+  {
+    "url": "test-videos/YESTERDAY.mp4",
+    "label": "YESTERDAY",
+    "expected": "YESTERDAY"
+  }
+]

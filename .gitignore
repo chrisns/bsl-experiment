@@ -1,0 +1,47 @@
+# Video datasets (uncertain licensing)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+frontend/test-videos/
+
+# ML training artifacts
+*.pkl
+*.pth
+*.pt
+*.h5
+*.pickle
+checkpoints/
+data-backup/
+videos-backup/
+cache/
+*.npy
+extracted_features.json
+bsldict_features.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# CDK artifacts
+cdk.out/
+dist/
+
+# Env
+.env
+.env.local

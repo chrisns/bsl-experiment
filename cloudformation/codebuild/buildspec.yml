@@ -1,0 +1,20 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - echo Downloading Dockerfile and inference code from S3...
+      - aws s3 cp s3://$DATA_BUCKET/sagemaker/Dockerfile .
+      - aws s3 cp s3://$DATA_BUCKET/sagemaker/inference.py .
+      - aws s3 cp s3://$DATA_BUCKET/sagemaker/model.py .
+      - aws s3 cp s3://$DATA_BUCKET/sagemaker/requirements.txt .
+  build:
+    commands:
+      - echo Building Docker image...
+      - docker build -t $ECR_REPO_URI:latest .
+  post_build:
+    commands:
+      - echo Pushing Docker image to ECR...
+      - docker push $ECR_REPO_URI:latest
+      - echo Build completed on `date`

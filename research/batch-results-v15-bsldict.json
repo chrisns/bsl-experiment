@@ -1,0 +1,60 @@
+{
+  "date": "2026-03-11",
+  "version": "v15-bsldict",
+  "totalTests": 119,
+  "passed": 103,
+  "failed": 16,
+  "accuracy": "86.6%",
+  "notes": "ML classifier trained on 515 BSLDict multi-signer videos (avg 4.3 per sign), tested on original 119 test videos. Same MLP architecture (256→128→64) but with real signer variance instead of only synthetic augmentation. 20 augmentations per sample (down from 100). Features extracted using Python MediaPipe. CV accuracy 99.7% Top-1, 100% Top-5.",
+  "changes": [
+    "BSLDict training data: 515 videos from signbsl.com covering all 119 signs",
+    "Multi-signer variance: average 4.3 different signers per sign (range 1-9)",
+    "Reduced augmentation from 100x to 20x (real variance replaces synthetic)",
+    "Train/test split: BSLDict videos for training, original 119 test videos for evaluation",
+    "No data leakage: training and test sets are completely independent"
+  ],
+  "passes": [
+    "AGAIN", "ANSWER", "BAD", "BEAUTIFUL", "BIG", "BLACK", "BLUE", "BOOK", "BOY", "BUS",
+    "CAR", "CAT", "CHILD", "CLEAN", "CLOSE", "COFFEE", "COLD", "COME", "COMPUTER", "DEAF",
+    "DIFFERENT", "DOCTOR", "DOG", "DRINK", "EAT", "EVENING", "FAMILY", "FATHER", "FOOD", "FREE",
+    "FRIEND", "GIRL", "GO", "GOOD", "GOODBYE", "GREEN", "HAPPY", "HELP", "HOT", "HOUSE",
+    "HOW", "HUNGRY", "IMPORTANT", "KNOW", "LANGUAGE", "LEARN", "LIKE", "LOVE", "MAN", "MEETING",
+    "MILK", "MONEY", "MONTH", "MORE", "MOTHER", "NAME", "NEW", "NO", "OLD", "OPEN",
+    "PAIN", "PLEASE", "POLICE", "PROBLEM", "QUESTION", "RED", "RUN", "SAME", "SCHOOL", "SICK",
+    "SIGN", "SIT", "SLEEP", "SMALL", "SORRY", "TEA", "TEACHER", "THANK-YOU", "THIRSTY", "TIRED",
+    "TODAY", "TOMORROW", "UGLY", "UNDERSTAND", "WAIT", "WALK", "WANT", "WATER", "WEEK", "WELCOME",
+    "WHAT", "WHEN", "WHERE", "WHITE", "WHO", "WHY", "WOMAN", "WORK", "WRONG", "YEAR",
+    "YELLOW", "YES", "YESTERDAY"
+  ],
+  "fails": [
+    "AFTERNOON", "CORRECT", "FINISH", "HEARING", "HELLO", "HOSPITAL",
+    "MORNING", "NICE-TO-MEET-YOU", "NIGHT", "NUMBER", "PHONE", "SAD",
+    "STAND", "START", "STOP", "TRAIN"
+  ],
+  "failDetails": {
+    "AFTERNOON": "predicted POLICE (15%)",
+    "CORRECT": "predicted HELP (23%)",
+    "FINISH": "predicted PROBLEM (11%)",
+    "HEARING": "predicted DEAF (97%) — very similar signs",
+    "HELLO": "predicted NO (40%)",
+    "HOSPITAL": "predicted MORE (19%) — only 1 BSLDict training video",
+    "MORNING": "predicted GREEN (28%)",
+    "NICE-TO-MEET-YOU": "predicted THANK-YOU (26%) — very similar signs",
+    "NIGHT": "predicted WELCOME (18%)",
+    "NUMBER": "predicted NEW (29%)",
+    "PHONE": "predicted TEA (61%)",
+    "SAD": "predicted MAN (21%)",
+    "STAND": "predicted BLUE (15%) — only 1 BSLDict training video",
+    "START": "predicted HOT (29%)",
+    "STOP": "predicted PROBLEM (11%)",
+    "TRAIN": "predicted LANGUAGE (20%)"
+  },
+  "comparedToV14": {
+    "v14passes": ["BIG", "CAR", "CLEAN", "COMPUTER", "DOG", "EVENING", "HOSPITAL", "HOUSE", "HOW", "PAIN", "RUN", "SIGN", "SMALL", "TEACHER"],
+    "v14accuracy": "11.8%",
+    "gained": 95,
+    "lost": 6,
+    "lostSigns": ["AFTERNOON", "HOSPITAL", "HELLO", "PHONE", "START", "STOP"],
+    "note": "7.3x accuracy improvement (11.8% → 86.6%). Multi-signer training data was the key missing ingredient."
+  }
+}

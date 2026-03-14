@@ -1,0 +1,24 @@
+{
+  "date": "2026-03-11",
+  "version": "v14-ml-only",
+  "totalTests": 119,
+  "passed": 14,
+  "failed": 105,
+  "accuracy": "11.8%",
+  "notes": "ML classifier (ONNX) trained on Python MediaPipe features, tested in browser via ONNX Runtime Web. ML Only mode replaces categorical scoring entirely. Model: 343KB ONNX, 142-dim statistical features, MLP 256→128→64, trained with 100 augmentations per sample. CV accuracy was 99.2% but LOO was 0% (1 sample per class). Browser test gets 11.8% — likely limited by JS/Python MediaPipe feature mismatch.",
+  "changes": [
+    "ONNX model trained from Python MediaPipe landmarks (extract_and_train.py)",
+    "142-dim statistical feature vector: per-dim stats (7), trajectory features (10), non-dom hand (3), body-relative distances (9), metadata (1)",
+    "MLP architecture: 256→128→64 with BatchNorm, ReLU, Dropout(0.3)",
+    "100 augmentations per sample (noise, scale, translation, speed warp, finger flip, frame dropout)",
+    "ONNX Runtime Web for browser inference",
+    "ML Only mode: replaces categorical scoring with ML prediction from last segment"
+  ],
+  "passes": ["BIG", "CAR", "CLEAN", "COMPUTER", "DOG", "EVENING", "HOSPITAL", "HOUSE", "HOW", "PAIN", "RUN", "SIGN", "SMALL", "TEACHER"],
+  "comparedToV13": {
+    "v13passes": ["CHILD", "HAPPY", "LIKE", "OLD", "PHONE", "YES"],
+    "gained": ["BIG", "CAR", "CLEAN", "COMPUTER", "DOG", "EVENING", "HOSPITAL", "HOUSE", "HOW", "PAIN", "RUN", "SIGN", "SMALL", "TEACHER"],
+    "lost": ["CHILD", "HAPPY", "LIKE", "OLD", "PHONE", "YES"],
+    "note": "Completely different pass sets — ML discriminates on different features than categorical scoring"
+  }
+}

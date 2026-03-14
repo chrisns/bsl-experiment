@@ -1,0 +1,83 @@
+{
+  "date": "2026-03-11",
+  "version": "v16-expanded",
+  "totalTests": 119,
+  "passed": 102,
+  "failed": 17,
+  "accuracy": "85.7%",
+  "notes": "ML classifier trained on 2786 BSLDict multi-signer videos (944 signs, avg 3.0 per sign), tested on original 119 test videos. Scaled MLP architecture (512→256→128) with 120 epochs, batch 128 for large vocabulary. 20 augmentations per sample. Features extracted using Python MediaPipe. CV accuracy 99.8% Top-1, 100% Top-5.",
+  "changes": [
+    "Vocabulary expanded from 119 to 944 signs (8x increase)",
+    "2786 BSLDict training videos (up from 515 in v15)",
+    "Includes fingerspelling (A-Z), numbers (1-20), pronouns, verbs, time/calendar, people/family, etc.",
+    "Scaled architecture: [512, 256, 128] hidden dims, 120 epochs, batch 128",
+    "Model size: 1419KB ONNX (up from ~343KB in v15)",
+    "Only 1 test regression despite 8x vocabulary increase"
+  ],
+  "passes": [
+    "AGAIN", "ANSWER", "BAD", "BEAUTIFUL", "BIG", "BLACK", "BLUE", "BOOK", "BOY", "BUS",
+    "CAR", "CAT", "CHILD", "CLEAN", "CLOSE", "COFFEE", "COLD", "COME", "COMPUTER", "DEAF",
+    "DIFFERENT", "DOCTOR", "DOG", "DRINK", "EAT", "EVENING", "FAMILY", "FATHER", "FOOD", "FREE",
+    "FRIEND", "GIRL", "GO", "GOOD", "GOODBYE", "GREEN", "HAPPY", "HELP", "HOT", "HOUSE",
+    "HOW", "HUNGRY", "IMPORTANT", "KNOW", "LANGUAGE", "LEARN", "LIKE", "LOVE", "MAN", "MEETING",
+    "MILK", "MONEY", "MONTH", "MORE", "MOTHER", "NAME", "NEW", "NO", "OLD", "OPEN",
+    "PAIN", "PLEASE", "POLICE", "PROBLEM", "QUESTION", "RED", "RUN", "SAME", "SCHOOL", "SICK",
+    "SIGN", "SIT", "SLEEP", "SMALL", "SORRY", "TEA", "TEACHER", "THANK-YOU", "THIRSTY", "TIRED",
+    "TODAY", "TOMORROW", "UGLY", "UNDERSTAND", "WAIT", "WALK", "WANT", "WATER", "WEEK", "WELCOME",
+    "WHEN", "WHERE", "WHITE", "WHO", "WHY", "WOMAN", "WORK", "WRONG", "YEAR",
+    "YELLOW", "YES", "YESTERDAY"
+  ],
+  "fails": [
+    "AFTERNOON", "CORRECT", "FINISH", "HEARING", "HELLO", "HOSPITAL",
+    "MORNING", "NICE-TO-MEET-YOU", "NIGHT", "NUMBER", "PHONE", "SAD",
+    "STAND", "START", "STOP", "TRAIN", "WHAT"
+  ],
+  "failDetails": {
+    "AFTERNOON": "predicted RELIEF (40%)",
+    "CORRECT": "predicted RIGHT (100%) — semantically correct, label mismatch",
+    "FINISH": "predicted MARCH (47%)",
+    "HEARING": "predicted DEAF (18%) — very similar signs",
+    "HELLO": "predicted THUNDER (40%)",
+    "HOSPITAL": "predicted EXCITED (26%) — only 1 BSLDict training video",
+    "MORNING": "predicted APOLOGISE (14%)",
+    "NICE-TO-MEET-YOU": "predicted THANK-YOU (18%) — very similar signs",
+    "NIGHT": "predicted DARK (97%) — semantically correct, label mismatch",
+    "NUMBER": "predicted CORNER (24%)",
+    "PHONE": "predicted WOLF (60%)",
+    "SAD": "predicted PEOPLE (8%)",
+    "STAND": "predicted PERSON (37%) — only 1 BSLDict training video",
+    "START": "predicted GET (98%)",
+    "STOP": "predicted MARCH (47%)",
+    "TRAIN": "predicted SOFTWARE (26%)",
+    "WHAT": "predicted VILLAGE (45%) — new failure in v16"
+  },
+  "comparedToV15": {
+    "v15passes": 103,
+    "v15accuracy": "86.6%",
+    "gained": 0,
+    "lost": 1,
+    "lostSigns": ["WHAT"],
+    "note": "Only 1 regression (WHAT) despite expanding vocabulary from 119 to 944 signs. The expanded vocabulary includes fingerspelling, numbers, and hundreds of conversational signs. Some failures are semantically correct but mismatched labels (CORRECT→RIGHT, NIGHT→DARK, START→GET)."
+  },
+  "vocabularyExpansion": {
+    "v15Signs": 119,
+    "v16Signs": 944,
+    "categories": [
+      "Original 119 signs",
+      "Fingerspelling A-Z",
+      "Numbers 1-20",
+      "Pronouns (I, YOU, HE, SHE, WE, THEY, etc.)",
+      "Verbs (AGREE, ARRIVE, ASK, BELIEVE, BUILD, etc.)",
+      "Time/Calendar (MONDAY-SUNDAY, JANUARY-DECEMBER, etc.)",
+      "People/Family (AUNT, UNCLE, COUSIN, NEPHEW, etc.)",
+      "Places (CITY, COUNTRY, ENGLAND, SCOTLAND, etc.)",
+      "Food/Drink (APPLE, BREAD, CHEESE, CHICKEN, etc.)",
+      "Adjectives (ANGRY, BRAVE, BUSY, CHEAP, etc.)",
+      "Animals (BIRD, CAT, DOG, ELEPHANT, FISH, etc.)",
+      "Body/Health (ARM, BRAIN, EAR, EYE, HEART, etc.)",
+      "Education (CLASS, EXAM, HOMEWORK, UNIVERSITY, etc.)",
+      "Technology (EMAIL, INTERNET, PASSWORD, SOFTWARE, etc.)",
+      "Transport (BICYCLE, BOAT, PLANE, STATION, etc.)"
+    ]
+  }
+}

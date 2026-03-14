@@ -1,0 +1,1408 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: |
+  NDX:Try - BSL Sign Language Translation (Sandbox)
+  Bidirectional British Sign Language translation with SageMaker GPU inference,
+  Bedrock glossing, and real-time browser-based pose detection.
+  Version: 1.0.0
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Scenario Configuration
+        Parameters:
+          - Environment
+          - SageMakerInstanceType
+
+Parameters:
+  Environment:
+    Type: String
+    Default: sandbox
+    AllowedValues:
+      - sandbox
+      - development
+      - production
+    Description: Deployment environment
+
+  SageMakerInstanceType:
+    Type: String
+    Default: ml.m5.2xlarge
+    AllowedValues:
+      - ml.m5.2xlarge
+      - ml.m5.xlarge
+      - ml.c5.2xlarge
+      - ml.g5.xlarge
+      - ml.g4dn.xlarge
+    Description: SageMaker endpoint instance type
+
+Resources:
+  # ============================================================
+  # S3 BUCKETS
+  # ============================================================
+
+  # Website hosting bucket
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'ndx-try-bsl-website-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${WebsiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${DataBucket.Arn}/lexicon/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # Data bucket (models, lexicon videos, output)
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'ndx-try-bsl-data-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET]
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # ============================================================
+  # DYNAMODB
+  # ============================================================
+
+  BSLSignLexicon:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'ndx-try-bsl-lexicon-${AWS::AccountId}-${AWS::Region}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: Gloss
+          AttributeType: S
+        - AttributeName: QualityRankSource
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Gloss
+          KeyType: HASH
+        - AttributeName: QualityRankSource
+          KeyType: RANGE
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # ============================================================
+  # COGNITO
+  # ============================================================
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub 'ndx-try-bsl-users-${AWS::Region}'
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: bsl-web-client
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - !Sub 'https://${CloudFrontDistribution.DomainName}'
+        - http://localhost:3000
+      LogoutURLs:
+        - !Sub 'https://${CloudFrontDistribution.DomainName}'
+        - http://localhost:3000
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub 'ndx-try-bsl-${AWS::AccountId}'
+      UserPoolId: !Ref UserPool
+
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: !Sub 'ndx_try_bsl_${AWS::Region}'
+      AllowUnauthenticatedIdentities: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref UserPoolClient
+          ProviderName: !GetAtt UserPool.ProviderName
+
+  IdentityPoolRoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        authenticated: !GetAtt CognitoAuthRole.Arn
+
+  CognitoAuthRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'InnovationSandbox-ndx-bsl-cognito-auth'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                cognito-identity.amazonaws.com:aud: !Ref IdentityPool
+              ForAnyValue:StringLike:
+                cognito-identity.amazonaws.com:amr: authenticated
+      Policies:
+        - PolicyName: CognitoAuthPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub '${DataBucket.Arn}/output/*'
+                  - !Sub '${DataBucket.Arn}/lexicon/*'
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # ============================================================
+  # CLOUDFRONT
+  # ============================================================
+
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'ndx-try-bsl-oac-${AWS::AccountId}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+          - Id: DataOrigin
+            DomainName: !GetAtt DataBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        CacheBehaviors:
+          - PathPattern: '/lexicon/*'
+            TargetOriginId: DataOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            Compress: true
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          Compress: true
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        PriceClass: PriceClass_100
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # ============================================================
+  # IAM ROLES
+  # ============================================================
+
+  # Lambda execution role (shared by most Lambdas)
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'InnovationSandbox-ndx-bsl-lambda'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BSLLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub '${DataBucket.Arn}'
+                  - !Sub '${DataBucket.Arn}/*'
+                  - !Sub '${WebsiteBucket.Arn}'
+                  - !Sub '${WebsiteBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt BSLSignLexicon.Arn
+              - Effect: Allow
+                Action:
+                  - sagemaker:InvokeEndpoint
+                Resource:
+                  - !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:endpoint/ndx-try-bsl-endpoint-${AWS::AccountId}'
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-lite-v1:0'
+              - Effect: Allow
+                Action:
+                  - polly:SynthesizeSpeech
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - transcribe:StartTranscriptionJob
+                  - transcribe:GetTranscriptionJob
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ndx-try-bsl-text-to-gloss-${AWS::Region}'
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ndx-try-bsl-gloss-to-video-${AWS::Region}'
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # Seed data Lambda role (needs additional permissions)
+  SeedDataRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'InnovationSandbox-ndx-bsl-seed'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SeedDataPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub '${DataBucket.Arn}'
+                  - !Sub '${DataBucket.Arn}/*'
+                  - !Sub '${WebsiteBucket.Arn}'
+                  - !Sub '${WebsiteBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:Scan
+                  - dynamodb:DeleteItem
+                Resource:
+                  - !GetAtt BSLSignLexicon.Arn
+              - Effect: Allow
+                Action:
+                  - bedrock:GetFoundationModelAvailability
+                  - bedrock:ListFoundationModelAgreementOffers
+                  - bedrock:CreateFoundationModelAgreement
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - aws-marketplace:ViewSubscriptions
+                  - aws-marketplace:Subscribe
+                Resource: '*'
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # SageMaker execution role
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'InnovationSandbox-ndx-bsl-sagemaker'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SageMakerInferencePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub '${DataBucket.Arn}'
+                  - !Sub '${DataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/sagemaker/*'
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: '/aws/sagemaker/Endpoints'
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # Step Functions role
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'InnovationSandbox-ndx-bsl-sfn'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt TextToGlossFunction.Arn
+                  - !GetAtt GlossToVideoFunction.Arn
+                  - !GetAtt ProcessTranscriptionFunction.Arn
+              - Effect: Allow
+                Action:
+                  - transcribe:StartTranscriptionJob
+                  - transcribe:GetTranscriptionJob
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - polly:SynthesizeSpeech
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource:
+                  - !Sub '${DataBucket.Arn}/output/*'
+                  - !Sub '${DataBucket.Arn}/audio/*'
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # ============================================================
+  # SAGEMAKER ENDPOINT
+  # ============================================================
+
+  BSL1KModel:
+    Type: AWS::SageMaker::Model
+    DependsOn: SeedDataCustomResource
+    Properties:
+      ModelName: !Sub 'ndx-try-bsl-model-v12-${AWS::AccountId}'
+      ExecutionRoleArn: !GetAtt SageMakerExecutionRole.Arn
+      PrimaryContainer:
+        Image: !Sub '763104351884.dkr.ecr.${AWS::Region}.amazonaws.com/pytorch-inference:2.2.0-cpu-py310-ubuntu20.04-sagemaker'
+        ModelDataUrl: !Sub 's3://${DataBucket}/models/model.tar.gz'
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  BSL1KEndpointConfig:
+    Type: AWS::SageMaker::EndpointConfig
+    Properties:
+      EndpointConfigName: !Sub 'ndx-try-bsl-endpoint-config-v12-${AWS::AccountId}'
+      ProductionVariants:
+        - VariantName: primary
+          ModelName: !GetAtt BSL1KModel.ModelName
+          InstanceType: !Ref SageMakerInstanceType
+          InitialInstanceCount: 1
+          InitialVariantWeight: 1.0
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  BSL1KEndpoint:
+    Type: AWS::SageMaker::Endpoint
+    Properties:
+      EndpointName: !Sub 'ndx-try-bsl-endpoint-${AWS::AccountId}'
+      EndpointConfigName: !GetAtt BSL1KEndpointConfig.EndpointConfigName
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # ============================================================
+  # LAMBDA FUNCTIONS
+  # ============================================================
+
+  # --- Seed Data Custom Resource Lambda ---
+  # Uses CodeUri (packaged from lambdas/seed-data/) because the code
+  # with embedded SageMaker inference files exceeds the 4096-char ZipFile limit.
+  SeedDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'ndx-try-bsl-seed-data-${AWS::Region}'
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt SeedDataRole.Arn
+      Timeout: 900
+      MemorySize: 2048
+      EphemeralStorage:
+        Size: 5120
+      CodeUri: lambdas/seed-data/
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucket
+          WEBSITE_BUCKET: !Ref WebsiteBucket
+          LEXICON_TABLE: !Ref BSLSignLexicon
+          CLOUDFRONT_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
+          USER_POOL_ID: !Ref UserPool
+          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+          IDENTITY_POOL_ID: !Ref IdentityPool
+          RECOGNISE_FUNCTION_URL: !Sub 'https://${BSLHttpApi}.execute-api.${AWS::Region}.amazonaws.com/recognise'
+          TEXT_TO_SIGN_FUNCTION_URL: !Sub 'https://${BSLHttpApi}.execute-api.${AWS::Region}.amazonaws.com/text-to-sign'
+          AWS_ACCOUNT_ID_PARAM: !Ref AWS::AccountId
+      Tags:
+        Project: ndx-try
+        Scenario: bsl-sign-language
+        AutoCleanup: 'true'
+
+  SeedDataCustomResource:
+    Type: Custom::SeedData
+    Properties:
+      ServiceToken: !GetAtt SeedDataFunction.Arn
+      Version: '1.2.0'
+
+  # --- Recognise Frames Lambda (Function URL) ---
+  RecogniseFramesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'ndx-try-bsl-recognise-${AWS::Region}'
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          SAGEMAKER_ENDPOINT: !Sub 'ndx-try-bsl-endpoint-${AWS::AccountId}'
+          DATA_BUCKET: !Ref DataBucket
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          sm = boto3.client('sagemaker-runtime')
+          bedrock = boto3.client('bedrock-runtime')
+          ENDPOINT = os.environ['SAGEMAKER_ENDPOINT']
+
+          def lambda_handler(event, context):
+              try:
+                  body = json.loads(event.get('body', '{}'))
+                  frames = body.get('frames', [])
+                  batch_id = body.get('batchId', 'unknown')
+                  if not frames:
+                      return resp(400, {'error': 'No frames provided'})
+                  r = sm.invoke_endpoint(
+                      EndpointName=ENDPOINT, ContentType='application/json',
+                      Body=json.dumps({'frames': frames, 'batchId': batch_id}))
+                  result = json.loads(r['Body'].read().decode())
+                  preds = result.get('predictions', [])
+                  nova_desc = None
+                  if preds and preds[0]['confidence'] < 0.70:
+                      nova_desc = validate_nova(frames, preds[0])
+                  return resp(200, {'type': 'prediction', 'batchId': batch_id,
+                      'signs': preds, 'novaDescription': nova_desc})
+              except Exception as e:
+                  logger.error(f'Error: {e}', exc_info=True)
+                  return resp(500, {'error': str(e)})
+
+          def validate_nova(frames, top_pred):
+              try:
+                  mid = frames[len(frames) // 2]
+                  r = bedrock.invoke_model(modelId='amazon.nova-lite-v1:0',
+                      contentType='application/json', accept='application/json',
+                      body=json.dumps({'messages': [{'role': 'user', 'content': [
+                          {'image': {'format': 'jpeg', 'source': {'bytes': mid}}},
+                          {'text': 'Describe what this person is doing with their hands in detail.'}
+                      ]}], 'inferenceConfig': {'maxTokens': 200}}))
+                  res = json.loads(r['body'].read().decode())
+                  return res.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', '')
+              except Exception as e:
+                  logger.warning(f'Nova validation failed: {e}')
+                  return None
+
+          def resp(code, body):
+              return {'statusCode': code,
+                  'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                  'body': json.dumps(body)}
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # API Gateway HTTP API (replaces Function URLs blocked by ISB SCP)
+  BSLHttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: ndx-try-bsl-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - content-type
+      Tags:
+        Project: ndx-try
+        Scenario: bsl-sign-language
+        AutoCleanup: 'true'
+
+  BSLHttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref BSLHttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  RecogniseIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BSLHttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt RecogniseFramesFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  RecogniseRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BSLHttpApi
+      RouteKey: 'POST /recognise'
+      Target: !Sub 'integrations/${RecogniseIntegration}'
+
+  RecogniseApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RecogniseFramesFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BSLHttpApi}/*/*/recognise'
+
+  RecogniseFramesLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${RecogniseFramesFunction}'
+      RetentionInDays: 7
+
+  # --- Text to Gloss Lambda ---
+  TextToGlossFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'ndx-try-bsl-text-to-gloss-${AWS::Region}'
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          MODEL_ID: anthropic.claude-3-haiku-20240307-v1:0
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          bedrock = boto3.client('bedrock-runtime')
+          MODEL_ID = os.environ.get('MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0')
+
+          SYSTEM = """You are a BSL gloss translator. Convert English to BSL gloss:
+          - Word order: TIME > TOPIC > COMMENT
+          - Remove: articles (a/an/the), copula (is/am/are/was/were), infinitive (to)
+          - WH-questions: move to end
+          - Tense: PAST/FUTURE/NOW at start
+          - Verbs: base form only, NOT after verb for negation
+          - Pronouns: IX-1P (I), IX-2P (you), IX-3P (he/she/they)
+          Return ONLY JSON: {"gloss":"...","glossWords":["..."]}"""
+
+          EXAMPLES = [
+              ("What is your name?", '{"gloss":"NAME IX-2P WHAT","glossWords":["NAME","IX-2P","WHAT"]}'),
+              ("I went to the shops yesterday", '{"gloss":"YESTERDAY SHOP IX-1P GO","glossWords":["YESTERDAY","SHOP","IX-1P","GO"]}'),
+              ("The council tax bill has not been paid", '{"gloss":"COUNCIL TAX BILL PAY NOT","glossWords":["COUNCIL","TAX","BILL","PAY","NOT"]}'),
+          ]
+
+          def lambda_handler(event, context):
+              text = event.get('text', '')
+              if not text:
+                  return {'gloss': '', 'glossWords': [], 'originalText': ''}
+              msgs = []
+              for eng, bsl in EXAMPLES:
+                  msgs.append({'role': 'user', 'content': [{'type': 'text', 'text': eng}]})
+                  msgs.append({'role': 'assistant', 'content': [{'type': 'text', 'text': bsl}]})
+              msgs.append({'role': 'user', 'content': [{'type': 'text', 'text': text}]})
+              r = bedrock.invoke_model(modelId=MODEL_ID, contentType='application/json',
+                  accept='application/json', body=json.dumps({
+                      'anthropic_version': 'bedrock-2023-05-31', 'max_tokens': 512,
+                      'system': SYSTEM, 'messages': msgs}))
+              content = json.loads(r['body'].read().decode())['content'][0]['text']
+              try:
+                  data = json.loads(content)
+                  return {'gloss': data.get('gloss', ''), 'glossWords': data.get('glossWords', []), 'originalText': text}
+              except json.JSONDecodeError:
+                  gloss = content.strip().upper()
+                  return {'gloss': gloss, 'glossWords': gloss.split(), 'originalText': text}
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  TextToGlossLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${TextToGlossFunction}'
+      RetentionInDays: 7
+
+  # --- Gloss to Video Lambda ---
+  # Note: For FFmpeg stitching, deploy with an FFmpeg Lambda Layer.
+  # Without FFmpeg, returns individual clip pre-signed URLs for sequential playback.
+  GlossToVideoFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'ndx-try-bsl-gloss-to-video-${AWS::Region}'
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucket
+          LEXICON_TABLE: !Ref BSLSignLexicon
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import uuid
+          import shutil
+          import subprocess
+          import logging
+          import boto3
+          from boto3.dynamodb.conditions import Key
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          s3 = boto3.client('s3')
+          dynamodb = boto3.resource('dynamodb')
+          BUCKET = os.environ['DATA_BUCKET']
+          TABLE = os.environ['LEXICON_TABLE']
+          HAS_FFMPEG = shutil.which('ffmpeg') is not None
+
+          def lambda_handler(event, context):
+              words = event.get('glossWords', [])
+              if not words:
+                  return {'videoUrl': '', 'videoUrls': [], 'glossBreakdown': []}
+              table = dynamodb.Table(TABLE)
+              clip_keys, breakdown = [], []
+              for w in words:
+                  wu = w.upper().strip()
+                  if wu.startswith('IX-'):
+                      breakdown.append({'word': w, 'source': 'index', 'type': 'index'})
+                      continue
+                  r = table.query(KeyConditionExpression=Key('Gloss').eq(wu), ScanIndexForward=True)
+                  items = r.get('Items', [])
+                  if items:
+                      best = items[0]
+                      clip_keys.append(best['VideoKey'])
+                      breakdown.append({'word': w, 'source': best['Source'], 'signId': best['SignId'], 'type': 'sign'})
+                  else:
+                      for letter in [c for c in wu if c.isalpha()]:
+                          clip_keys.append(f'lexicon/fingerspelling/{letter}.mp4')
+                      breakdown.append({'word': w, 'source': 'fingerspelling', 'type': 'fingerspell'})
+              if not clip_keys:
+                  return {'videoUrl': '', 'videoUrls': [], 'glossBreakdown': breakdown}
+              # Generate pre-signed URLs for each clip (for sequential playback)
+              clip_urls = []
+              for ck in clip_keys:
+                  try:
+                      url = s3.generate_presigned_url('get_object',
+                          Params={'Bucket': BUCKET, 'Key': ck}, ExpiresIn=3600)
+                      clip_urls.append(url)
+                  except Exception as e:
+                      logger.warning(f'Missing clip {ck}: {e}')
+              # If FFmpeg available (Lambda Layer), stitch clips
+              if HAS_FFMPEG and len(clip_keys) > 1:
+                  try:
+                      local_clips = []
+                      for i, ck in enumerate(clip_keys):
+                          lp = f'/tmp/c_{i}.mp4'
+                          s3.download_file(BUCKET, ck, lp)
+                          local_clips.append(lp)
+                      out = f'/tmp/out_{uuid.uuid4().hex[:8]}.mp4'
+                      lst = '/tmp/list.txt'
+                      with open(lst, 'w') as f:
+                          for c in local_clips:
+                              f.write(f"file '{c}'\n")
+                      subprocess.run(['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', lst,
+                          '-c:v', 'libx264', '-preset', 'ultrafast', '-an', out],
+                          capture_output=True, timeout=90, check=True)
+                      key = f'output/{uuid.uuid4().hex}.mp4'
+                      s3.upload_file(out, BUCKET, key, ExtraArgs={'ContentType': 'video/mp4'})
+                      stitched_url = s3.generate_presigned_url('get_object',
+                          Params={'Bucket': BUCKET, 'Key': key}, ExpiresIn=3600)
+                      return {'videoUrl': stitched_url, 'videoUrls': clip_urls, 'glossBreakdown': breakdown}
+                  except Exception as e:
+                      logger.warning(f'FFmpeg stitch failed, using individual clips: {e}')
+              # Return first clip URL as primary, all as sequential playlist
+              return {'videoUrl': clip_urls[0] if clip_urls else '', 'videoUrls': clip_urls, 'glossBreakdown': breakdown}
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  GlossToVideoLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${GlossToVideoFunction}'
+      RetentionInDays: 7
+
+  # --- Process Transcription Lambda ---
+  ProcessTranscriptionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'ndx-try-bsl-transcription-${AWS::Region}'
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucket
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          s3 = boto3.client('s3')
+          BUCKET = os.environ['DATA_BUCKET']
+
+          def lambda_handler(event, context):
+              tr = event.get('transcriptionResult', event)
+              uri = tr.get('TranscriptionJob', {}).get('Transcript', {}).get('TranscriptFileUri', '')
+              if not uri:
+                  uri = event.get('Transcript', {}).get('TranscriptFileUri', '')
+              if not uri:
+                  return {'text': '', 'error': 'No transcript URI'}
+              if uri.startswith('s3://'):
+                  parts = uri[5:].split('/', 1)
+                  bucket, key = parts[0], parts[1]
+              elif 's3.amazonaws.com' in uri or 's3-' in uri:
+                  from urllib.parse import urlparse
+                  parsed = urlparse(uri)
+                  pp = parsed.path.lstrip('/').split('/', 1)
+                  bucket, key = pp[0], pp[1] if len(pp) > 1 else ''
+              else:
+                  bucket, key = BUCKET, uri.split('/')[-1]
+              r = s3.get_object(Bucket=bucket, Key=key)
+              data = json.loads(r['Body'].read().decode())
+              transcripts = data.get('results', {}).get('transcripts', [])
+              text = transcripts[0].get('transcript', '') if transcripts else ''
+              logger.info(f'Transcribed: {text[:100]}')
+              return {'text': text}
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  ProcessTranscriptionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProcessTranscriptionFunction}'
+      RetentionInDays: 7
+
+  # --- Text to Sign Lambda (Function URL — synchronous pipeline) ---
+  # Directly invokes text-to-gloss and gloss-to-video Lambdas for synchronous response.
+  # Step Functions state machine is used for audio input path (async with Transcribe).
+  TextToSignFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'ndx-try-bsl-text-to-sign-${AWS::Region}'
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref TextToSignStateMachine
+          DATA_BUCKET: !Ref DataBucket
+          TEXT_TO_GLOSS_FN: !GetAtt TextToGlossFunction.Arn
+          GLOSS_TO_VIDEO_FN: !GetAtt GlossToVideoFunction.Arn
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import uuid
+          import boto3
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          lam = boto3.client('lambda')
+          sfn = boto3.client('stepfunctions')
+
+          def lambda_handler(event, context):
+              try:
+                  body = json.loads(event.get('body', '{}'))
+                  text = body.get('text', '')
+                  input_type = body.get('type', 'text')
+
+                  if input_type == 'audio':
+                      # Audio path: use Step Functions (async with Transcribe polling)
+                      execution = sfn.start_execution(
+                          stateMachineArn=os.environ['STATE_MACHINE_ARN'],
+                          name=f'bsl-{uuid.uuid4().hex[:8]}',
+                          input=json.dumps({'text': text, 'type': input_type, 'audioUri': body.get('audioUri', '')}))
+                      return resp(202, {'executionArn': execution['executionArn'], 'status': 'RUNNING'})
+
+                  # Text path: synchronous direct Lambda invocation
+                  # 1. Text to gloss
+                  gloss_resp = lam.invoke(FunctionName=os.environ['TEXT_TO_GLOSS_FN'],
+                      InvocationType='RequestResponse',
+                      Payload=json.dumps({'text': text}))
+                  gloss_result = json.loads(gloss_resp['Payload'].read().decode())
+                  logger.info(f'Gloss: {gloss_result.get("gloss", "")}')
+
+                  # 2. Gloss to video
+                  video_resp = lam.invoke(FunctionName=os.environ['GLOSS_TO_VIDEO_FN'],
+                      InvocationType='RequestResponse',
+                      Payload=json.dumps({
+                          'glossWords': gloss_result.get('glossWords', []),
+                          'gloss': gloss_result.get('gloss', '')}))
+                  video_result = json.loads(video_resp['Payload'].read().decode())
+
+                  return resp(200, {
+                      'gloss': gloss_result.get('gloss', ''),
+                      'glossBreakdown': video_result.get('glossBreakdown', []),
+                      'videoUrl': video_result.get('videoUrl', ''),
+                      'videoUrls': video_result.get('videoUrls', []),
+                      'originalText': text})
+              except Exception as e:
+                  logger.error(f'Error: {e}', exc_info=True)
+                  return resp(500, {'error': str(e)})
+
+          def resp(code, body):
+              return {'statusCode': code,
+                  'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                  'body': json.dumps(body)}
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  TextToSignIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref BSLHttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt TextToSignFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  TextToSignRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref BSLHttpApi
+      RouteKey: 'POST /text-to-sign'
+      Target: !Sub 'integrations/${TextToSignIntegration}'
+
+  TextToSignApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TextToSignFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BSLHttpApi}/*/*/text-to-sign'
+
+  TextToSignLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${TextToSignFunction}'
+      RetentionInDays: 7
+
+  # ============================================================
+  # STEP FUNCTIONS STATE MACHINE
+  # ============================================================
+
+  TextToSignStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: ndx-try-bsl-text-to-sign
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "BSL Text-to-Sign Translation Pipeline",
+          "StartAt": "InputCheck",
+          "States": {
+            "InputCheck": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.type",
+                  "StringEquals": "audio",
+                  "Next": "StartTranscription"
+                }
+              ],
+              "Default": "TextToGloss"
+            },
+            "StartTranscription": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:transcribe:startTranscriptionJob",
+              "Parameters": {
+                "TranscriptionJobName.$": "States.Format('bsl-{}', $$.Execution.Name)",
+                "LanguageCode": "en-GB",
+                "Media": {
+                  "MediaFileUri.$": "$.audioUri"
+                },
+                "OutputBucketName": "${DataBucket}"
+              },
+              "ResultPath": "$.transcriptionJob",
+              "Next": "WaitForTranscription"
+            },
+            "WaitForTranscription": {
+              "Type": "Wait",
+              "Seconds": 2,
+              "Next": "CheckTranscription"
+            },
+            "CheckTranscription": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:transcribe:getTranscriptionJob",
+              "Parameters": {
+                "TranscriptionJobName.$": "$.transcriptionJob.TranscriptionJob.TranscriptionJobName"
+              },
+              "ResultPath": "$.transcriptionResult",
+              "Next": "IsTranscriptionComplete"
+            },
+            "IsTranscriptionComplete": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.transcriptionResult.TranscriptionJob.TranscriptionJobStatus",
+                  "StringEquals": "COMPLETED",
+                  "Next": "ProcessTranscription"
+                },
+                {
+                  "Variable": "$.transcriptionResult.TranscriptionJob.TranscriptionJobStatus",
+                  "StringEquals": "FAILED",
+                  "Next": "TranscriptionFailed"
+                }
+              ],
+              "Default": "WaitForTranscription"
+            },
+            "ProcessTranscription": {
+              "Type": "Task",
+              "Resource": "${ProcessTranscriptionFunction.Arn}",
+              "ResultPath": "$.processedText",
+              "Next": "TextToGlossFromTranscription"
+            },
+            "TextToGlossFromTranscription": {
+              "Type": "Task",
+              "Resource": "${TextToGlossFunction.Arn}",
+              "Parameters": {
+                "text.$": "$.processedText.text"
+              },
+              "ResultPath": "$.glossResult",
+              "Next": "GlossToVideo",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 15,
+                  "MaxAttempts": 5,
+                  "BackoffRate": 1.5
+                }
+              ]
+            },
+            "TextToGloss": {
+              "Type": "Task",
+              "Resource": "${TextToGlossFunction.Arn}",
+              "Parameters": {
+                "text.$": "$.text"
+              },
+              "ResultPath": "$.glossResult",
+              "Next": "ParallelVideoAndSpeech",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 15,
+                  "MaxAttempts": 5,
+                  "BackoffRate": 1.5
+                }
+              ]
+            },
+            "ParallelVideoAndSpeech": {
+              "Type": "Parallel",
+              "Branches": [
+                {
+                  "StartAt": "GlossToVideoParallel",
+                  "States": {
+                    "GlossToVideoParallel": {
+                      "Type": "Task",
+                      "Resource": "${GlossToVideoFunction.Arn}",
+                      "Parameters": {
+                        "glossWords.$": "$.glossResult.glossWords",
+                        "gloss.$": "$.glossResult.gloss"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": ["States.TaskFailed"],
+                          "IntervalSeconds": 2,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2.0
+                        }
+                      ],
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "GenerateSpeech",
+                  "States": {
+                    "GenerateSpeech": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::aws-sdk:polly:synthesizeSpeech",
+                      "Parameters": {
+                        "Engine": "neural",
+                        "LanguageCode": "en-GB",
+                        "OutputFormat": "mp3",
+                        "Text.$": "$.text",
+                        "VoiceId": "Amy"
+                      },
+                      "ResultPath": "$.speechResult",
+                      "End": true
+                    }
+                  }
+                }
+              ],
+              "ResultPath": "$.parallelResults",
+              "Next": "FormatOutput"
+            },
+            "GlossToVideo": {
+              "Type": "Task",
+              "Resource": "${GlossToVideoFunction.Arn}",
+              "Parameters": {
+                "glossWords.$": "$.glossResult.glossWords",
+                "gloss.$": "$.glossResult.gloss"
+              },
+              "ResultPath": "$.videoResult",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Next": "FormatOutputFromTranscription"
+            },
+            "FormatOutput": {
+              "Type": "Pass",
+              "Parameters": {
+                "videoUrl.$": "$.parallelResults[0].videoUrl",
+                "glossBreakdown.$": "$.parallelResults[0].glossBreakdown",
+                "gloss.$": "$.glossResult.gloss",
+                "originalText.$": "$.text"
+              },
+              "End": true
+            },
+            "FormatOutputFromTranscription": {
+              "Type": "Pass",
+              "Parameters": {
+                "videoUrl.$": "$.videoResult.videoUrl",
+                "glossBreakdown.$": "$.videoResult.glossBreakdown",
+                "gloss.$": "$.glossResult.gloss",
+                "originalText.$": "$.processedText.text"
+              },
+              "End": true
+            },
+            "TranscriptionFailed": {
+              "Type": "Fail",
+              "Error": "TranscriptionFailed",
+              "Cause": "Amazon Transcribe job failed"
+            }
+          }
+        }
+      Tags:
+        - Key: Project
+          Value: ndx-try
+        - Key: Scenario
+          Value: bsl-sign-language
+        - Key: AutoCleanup
+          Value: 'true'
+
+  # ============================================================
+  # CLOUDWATCH LOG GROUPS
+  # ============================================================
+
+  SeedDataLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${SeedDataFunction}'
+      RetentionInDays: 7
+
+  # ============================================================
+  # OUTPUTS
+  # ============================================================
+
+Outputs:
+  WebsiteURL:
+    Description: CloudFront website URL
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteURL'
+
+  RecogniseFramesURL:
+    Description: API Gateway URL for BSL sign recognition
+    Value: !Sub 'https://${BSLHttpApi}.execute-api.${AWS::Region}.amazonaws.com/recognise'
+    Export:
+      Name: !Sub '${AWS::StackName}-RecogniseURL'
+
+  TextToSignURL:
+    Description: API Gateway URL for text-to-sign translation
+    Value: !Sub 'https://${BSLHttpApi}.execute-api.${AWS::Region}.amazonaws.com/text-to-sign'
+    Export:
+      Name: !Sub '${AWS::StackName}-TextToSignURL'
+
+  SageMakerEndpointName:
+    Description: SageMaker endpoint name for BSL-1K model
+    Value: !GetAtt BSL1KEndpoint.EndpointName
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+
+  IdentityPoolId:
+    Description: Cognito Identity Pool ID
+    Value: !Ref IdentityPool
+
+  DataBucketName:
+    Description: S3 bucket for BSL data (models, lexicon, output)
+    Value: !Ref DataBucket
+
+  ScenarioInfo:
+    Description: Scenario metadata
+    Value: !Sub |
+      {
+        "scenario": "bsl-sign-language",
+        "version": "1.0.0",
+        "websiteUrl": "https://${CloudFrontDistribution.DomainName}",
+        "recogniseUrl": "https://${BSLHttpApi}.execute-api.${AWS::Region}.amazonaws.com/recognise",
+        "textToSignUrl": "https://${BSLHttpApi}.execute-api.${AWS::Region}.amazonaws.com/text-to-sign",
+        "sagemakerEndpoint": "ndx-try-bsl-endpoint",
+        "dataBucket": "${DataBucket}",
+        "region": "${AWS::Region}"
+      }

@@ -1,0 +1,681 @@
+{
+  "_meta": {
+    "description": "BSL Phonological Parameters - locations, movements, orientations, and non-manual features",
+    "sources": [
+      "Sutton-Spence & Woll (1999) The Linguistics of British Sign Language",
+      "BSL SignBank (UCL) classification system",
+      "University of Surrey BSL resource (bsl.surrey.ac.uk)",
+      "BSL Corpus Project annotation conventions",
+      "PMC article: Correlations Between Handshape and Movement in Sign Languages"
+    ]
+  },
+
+  "locations": {
+    "_notes": "Locations where signs are produced on or near the body, plus neutral signing space",
+    "categories": [
+      {
+        "id": "top_of_head",
+        "region": "head",
+        "description": "Crown/top of head",
+        "exampleSigns": ["KING", "CROWN"]
+      },
+      {
+        "id": "forehead",
+        "region": "head",
+        "description": "Forehead / temple area",
+        "exampleSigns": ["KNOW", "THINK", "CLEVER", "IDEA", "WONDER", "REALIZE", "STUPID"],
+        "semanticAssociation": "Cognitive processes - thinking, knowing, mental activity"
+      },
+      {
+        "id": "temple",
+        "region": "head",
+        "description": "Side of forehead / temple",
+        "exampleSigns": ["THINK", "UNDERSTAND", "REMEMBER", "DREAM"],
+        "semanticAssociation": "Mental processes"
+      },
+      {
+        "id": "eye",
+        "region": "head",
+        "description": "Eye area / brow ridge",
+        "exampleSigns": ["SEE", "LOOK", "WATCH", "BLIND", "COLOUR-of-eyes"]
+      },
+      {
+        "id": "nose",
+        "region": "head",
+        "description": "Nose bridge or tip",
+        "exampleSigns": ["SISTER", "NOSY", "SMELL"]
+      },
+      {
+        "id": "ear",
+        "region": "head",
+        "description": "Ear / side of head near ear",
+        "exampleSigns": ["DEAF", "HEAR", "HEARING-AID", "LISTEN"]
+      },
+      {
+        "id": "cheek",
+        "region": "head",
+        "description": "Cheek area",
+        "exampleSigns": ["FLOWER", "APPLE", "BEAUTIFUL"]
+      },
+      {
+        "id": "mouth",
+        "region": "head",
+        "description": "Mouth and lips area",
+        "exampleSigns": ["SPEAK", "LIP-READ", "EAT", "FOOD", "SCHOOL (variant)"]
+      },
+      {
+        "id": "chin",
+        "region": "head",
+        "description": "Chin / lower jaw",
+        "exampleSigns": ["PLEASE", "THANK-YOU", "GOOD", "BAD", "MAN", "BOY", "AUNT", "UNCLE", "NEPHEW", "NIECE"],
+        "semanticAssociation": "Gender-male signs often at chin (beard area)"
+      },
+      {
+        "id": "neck",
+        "region": "body",
+        "description": "Throat / neck area",
+        "exampleSigns": ["THIRSTY", "SWALLOW", "NECKLACE"]
+      },
+      {
+        "id": "shoulder",
+        "region": "body",
+        "description": "Shoulder area",
+        "exampleSigns": ["COUSIN (variant)", "RESPONSIBLE"],
+        "semanticAssociation": "Past tense signs move backward over shoulder"
+      },
+      {
+        "id": "chest",
+        "region": "body",
+        "description": "Upper chest / breast area",
+        "exampleSigns": ["PLEASE (variant)", "PROUD", "HEART", "FEEL", "EMOTION", "HAPPY", "LOVE", "MINE", "SICK"],
+        "semanticAssociation": "Emotional states and feelings"
+      },
+      {
+        "id": "stomach",
+        "region": "body",
+        "description": "Stomach / abdomen area",
+        "exampleSigns": ["HUNGRY", "FULL", "STOMACH"],
+        "semanticAssociation": "Hunger, digestion"
+      },
+      {
+        "id": "waist",
+        "region": "body",
+        "description": "Waist / belt area",
+        "exampleSigns": ["BELT", "TROUSERS"]
+      },
+      {
+        "id": "upper_arm",
+        "region": "arm",
+        "description": "Upper arm / bicep",
+        "exampleSigns": ["STRONG", "INJECTION"]
+      },
+      {
+        "id": "elbow",
+        "region": "arm",
+        "description": "Elbow area",
+        "exampleSigns": ["CHEAP"]
+      },
+      {
+        "id": "forearm_pronated",
+        "region": "arm",
+        "description": "Forearm, palm-down orientation",
+        "exampleSigns": ["TIME-concept", "WATCH-wrist"]
+      },
+      {
+        "id": "forearm_supinated",
+        "region": "arm",
+        "description": "Forearm, palm-up orientation",
+        "exampleSigns": ["HELP", "GIVE"]
+      },
+      {
+        "id": "wrist",
+        "region": "arm",
+        "description": "Wrist area",
+        "exampleSigns": ["WATCH-timepiece", "BRACELET"]
+      },
+      {
+        "id": "palm",
+        "region": "hand",
+        "description": "Palm of non-dominant hand",
+        "exampleSigns": ["MOTHER", "WRITE", "MONEY"],
+        "semanticAssociation": "Base hand in asymmetric two-handed signs"
+      },
+      {
+        "id": "back_of_hand",
+        "region": "hand",
+        "description": "Back/dorsum of non-dominant hand",
+        "exampleSigns": ["COLOUR", "SKIN"]
+      },
+      {
+        "id": "fingertips_nd",
+        "region": "hand",
+        "description": "Fingertips of non-dominant hand",
+        "exampleSigns": ["Fingerspelling vowels A(thumb), E(index), I(middle), O(ring), U(little)"]
+      },
+      {
+        "id": "neutral_space",
+        "region": "space",
+        "description": "Space in front of signer between waist and head height, within comfortable arm reach",
+        "exampleSigns": ["MANY signs produced here", "GO", "COME", "GIVE", "WANT"],
+        "semanticAssociation": "Default location for many signs; spatial grammar and indicating verbs"
+      },
+      {
+        "id": "ipsilateral_space",
+        "region": "space",
+        "description": "Space on same side as dominant hand",
+        "exampleSigns": ["Reference points in spatial grammar"]
+      },
+      {
+        "id": "contralateral_space",
+        "region": "space",
+        "description": "Space on opposite side from dominant hand",
+        "exampleSigns": ["Reference points in spatial grammar"]
+      }
+    ]
+  },
+
+  "movements": {
+    "_notes": "Movement parameters in BSL phonology - path, local, manner, and repetition",
+    "pathMovements": [
+      {
+        "id": "straight_up",
+        "type": "path",
+        "direction": "upward",
+        "description": "Hand moves in a straight line upward",
+        "exampleSigns": ["STAND", "GROW"]
+      },
+      {
+        "id": "straight_down",
+        "type": "path",
+        "direction": "downward",
+        "description": "Hand moves in a straight line downward",
+        "exampleSigns": ["SAD", "SIT", "RAIN", "CAN"]
+      },
+      {
+        "id": "straight_forward",
+        "type": "path",
+        "direction": "forward",
+        "description": "Hand moves straight forward away from signer",
+        "exampleSigns": ["GO", "GIVE", "FUTURE-concept"]
+      },
+      {
+        "id": "straight_toward",
+        "type": "path",
+        "direction": "toward_signer",
+        "description": "Hand moves straight toward the signer",
+        "exampleSigns": ["COME", "TAKE", "WANT"]
+      },
+      {
+        "id": "straight_sideways",
+        "type": "path",
+        "direction": "lateral",
+        "description": "Hand moves in straight line to side",
+        "exampleSigns": ["WHAT (side-to-side)", "DIFFERENT"]
+      },
+      {
+        "id": "arc_up",
+        "type": "path",
+        "shape": "arc",
+        "description": "Hand traces an arc/curve upward",
+        "exampleSigns": ["MORNING"]
+      },
+      {
+        "id": "arc_down",
+        "type": "path",
+        "shape": "arc",
+        "description": "Hand traces an arc/curve downward",
+        "exampleSigns": ["EVENING", "FALL"]
+      },
+      {
+        "id": "arc_forward",
+        "type": "path",
+        "shape": "arc",
+        "description": "Hand traces arc moving forward",
+        "exampleSigns": ["TOMORROW"]
+      },
+      {
+        "id": "arc_backward",
+        "type": "path",
+        "shape": "arc",
+        "description": "Hand traces arc moving backward (over shoulder)",
+        "exampleSigns": ["YESTERDAY", "PAST", "BEFORE"]
+      },
+      {
+        "id": "circular",
+        "type": "path",
+        "shape": "circle",
+        "description": "Hand traces a circular path",
+        "exampleSigns": ["SHEEP", "FAMILY", "ALWAYS", "COLOUR-concept"]
+      },
+      {
+        "id": "circular_horizontal",
+        "type": "path",
+        "shape": "circle",
+        "plane": "horizontal",
+        "description": "Circle traced in horizontal plane (like stirring)",
+        "exampleSigns": ["WORLD", "AROUND"]
+      },
+      {
+        "id": "circular_vertical",
+        "type": "path",
+        "shape": "circle",
+        "plane": "vertical",
+        "description": "Circle traced in vertical plane",
+        "exampleSigns": ["YEAR", "AGAIN"]
+      },
+      {
+        "id": "zigzag",
+        "type": "path",
+        "shape": "zigzag",
+        "description": "Hand moves in zigzag/serpentine path",
+        "exampleSigns": ["SNAKE", "LIGHTNING"]
+      },
+      {
+        "id": "back_and_forth",
+        "type": "path",
+        "shape": "linear_repeated",
+        "description": "Hand moves back and forth along one axis",
+        "exampleSigns": ["RENT", "WORK", "BROTHER"]
+      },
+      {
+        "id": "alternating",
+        "type": "path",
+        "shape": "alternating",
+        "description": "Two hands move in opposite/alternating directions",
+        "exampleSigns": ["BICYCLE", "WALK (V-hand)", "FOOTBALL"]
+      },
+      {
+        "id": "away_from_each_other",
+        "type": "path",
+        "shape": "diverging",
+        "description": "Two hands move apart from center",
+        "exampleSigns": ["BIG", "OPEN", "WIDE"]
+      },
+      {
+        "id": "toward_each_other",
+        "type": "path",
+        "shape": "converging",
+        "description": "Two hands move together toward center",
+        "exampleSigns": ["SMALL", "CLOSE", "MEET"]
+      },
+      {
+        "id": "no_movement",
+        "type": "hold",
+        "description": "No path movement - hand held in position (hold/contact)",
+        "exampleSigns": ["HELP", "DAUGHTER (fingerspell)"]
+      }
+    ],
+    "localMovements": [
+      {
+        "id": "finger_wiggle",
+        "type": "local",
+        "description": "Fingers wiggle rapidly (independent finger movement)",
+        "exampleSigns": ["RAIN", "SNOW", "FIRE", "MAGIC"]
+      },
+      {
+        "id": "finger_flex",
+        "type": "local",
+        "description": "Fingers open and close (flex at knuckles)",
+        "exampleSigns": ["MILK", "LEARN", "WANT (variant)"]
+      },
+      {
+        "id": "hand_rotation_twist",
+        "type": "local",
+        "description": "Hand rotates at wrist (pronation/supination twist)",
+        "exampleSigns": ["NAME", "CHANGE", "PEPPER", "KEY"]
+      },
+      {
+        "id": "wrist_nod",
+        "type": "local",
+        "description": "Hand bends at wrist (nod up-down)",
+        "exampleSigns": ["YES (head-nod metaphor)", "HELLO (wave)"]
+      },
+      {
+        "id": "finger_open",
+        "type": "local",
+        "description": "Fingers spread open from closed position",
+        "exampleSigns": ["EXPLODE", "OPEN-MIND"]
+      },
+      {
+        "id": "finger_close",
+        "type": "local",
+        "description": "Fingers close from open to fist/pinch",
+        "exampleSigns": ["CATCH", "GRAB"]
+      },
+      {
+        "id": "finger_rub",
+        "type": "local",
+        "description": "Thumb rubs against fingers",
+        "exampleSigns": ["MONEY", "EXPENSIVE"]
+      },
+      {
+        "id": "hand_wave",
+        "type": "local",
+        "description": "Hand pivots side to side at wrist",
+        "exampleSigns": ["HELLO", "GOODBYE"]
+      }
+    ],
+    "mannerModifications": [
+      {
+        "id": "tense",
+        "description": "Movement performed with muscular tension - indicates intensity, size, or difficulty",
+        "semanticEffect": "Large, difficult, intense"
+      },
+      {
+        "id": "relaxed",
+        "description": "Movement performed in relaxed manner - indicates ease or normalcy",
+        "semanticEffect": "Normal, average, easy"
+      },
+      {
+        "id": "sharp",
+        "description": "Movement performed quickly with abrupt stop",
+        "semanticEffect": "Sudden, decisive, once"
+      },
+      {
+        "id": "smooth",
+        "description": "Movement flows smoothly without abrupt transitions",
+        "semanticEffect": "Gradual, continuous, gentle"
+      },
+      {
+        "id": "fast",
+        "description": "Movement performed at increased speed",
+        "semanticEffect": "Quick action, urgency, short duration"
+      },
+      {
+        "id": "slow",
+        "description": "Movement performed at decreased speed",
+        "semanticEffect": "Slow action, long duration, emphasis"
+      },
+      {
+        "id": "large",
+        "description": "Movement uses larger space than citation form",
+        "semanticEffect": "Emphasis, intensity, large scale"
+      },
+      {
+        "id": "small",
+        "description": "Movement is reduced/smaller than citation form",
+        "semanticEffect": "Casual register, de-emphasis, small scale"
+      }
+    ],
+    "repetitionPatterns": [
+      {
+        "id": "single",
+        "description": "Movement performed once",
+        "semanticEffect": "Single event, punctual aspect"
+      },
+      {
+        "id": "repeated",
+        "description": "Movement repeated (typically 2-3 times)",
+        "semanticEffect": "Habitual, continuous, emphasis; many nouns use double tap/contact"
+      },
+      {
+        "id": "continuous",
+        "description": "Movement repeated continuously",
+        "semanticEffect": "Ongoing duration, continuing action"
+      },
+      {
+        "id": "alternating",
+        "description": "Two hands alternate movement",
+        "semanticEffect": "Distributed action, plurality"
+      },
+      {
+        "id": "rapid_repeated",
+        "description": "Movement repeated rapidly many times",
+        "semanticEffect": "Intensity, abundance, many instances"
+      }
+    ]
+  },
+
+  "orientations": {
+    "_notes": "Palm orientation - the direction the palm faces during sign production",
+    "values": [
+      {
+        "id": "palm_up",
+        "description": "Palm faces upward (supine)",
+        "semanticAssociation": "Receiving, asking, open"
+      },
+      {
+        "id": "palm_down",
+        "description": "Palm faces downward (prone)",
+        "semanticAssociation": "Covering, stopping, negation"
+      },
+      {
+        "id": "palm_toward",
+        "description": "Palm faces toward the signer",
+        "semanticAssociation": "Self-reference, receiving, numbers 1-5"
+      },
+      {
+        "id": "palm_away",
+        "description": "Palm faces away from signer (toward addressee)",
+        "semanticAssociation": "Giving, showing, directing to other"
+      },
+      {
+        "id": "palm_left",
+        "description": "Palm faces to the left (for right-handed signer)",
+        "semanticAssociation": "Neutral for many signs"
+      },
+      {
+        "id": "palm_right",
+        "description": "Palm faces to the right (for right-handed signer)",
+        "semanticAssociation": "Neutral for many signs"
+      },
+      {
+        "id": "palm_inward",
+        "description": "Palms face each other (in two-handed signs)",
+        "semanticAssociation": "Containment, holding, parallel"
+      }
+    ]
+  },
+
+  "nonManualFeatures": {
+    "_notes": "Non-manual features (NMFs) are grammatically significant in BSL",
+    "facialExpression": [
+      {
+        "id": "raised_eyebrows",
+        "function": "grammatical",
+        "description": "Eyebrows raised",
+        "usage": "Yes/no questions, conditional clauses, topics",
+        "exampleContext": "YOU DEAF? (with raised eyebrows = yes/no question)"
+      },
+      {
+        "id": "furrowed_eyebrows",
+        "function": "grammatical",
+        "description": "Eyebrows lowered/furrowed",
+        "usage": "WH-questions (what, who, where, when, why, how), commands",
+        "exampleContext": "WHO YOU? (with furrowed brows = wh-question)"
+      },
+      {
+        "id": "wide_eyes",
+        "function": "adverbial",
+        "description": "Eyes widened",
+        "usage": "Surprise, emphasis, large size"
+      },
+      {
+        "id": "squinted_eyes",
+        "function": "adverbial",
+        "description": "Eyes narrowed/squinted",
+        "usage": "Precision, small size, suspicion, difficulty"
+      },
+      {
+        "id": "eye_gaze_direction",
+        "function": "grammatical",
+        "description": "Direction of eye gaze",
+        "usage": "Reference tracking (looking at established spatial locations for referents), turn-taking"
+      },
+      {
+        "id": "puffed_cheeks",
+        "function": "adverbial",
+        "description": "Cheeks puffed out with air",
+        "usage": "Large size, great amount, difficulty, long duration",
+        "exampleContext": "BIG (with puffed cheeks = very big)"
+      },
+      {
+        "id": "sucked_cheeks",
+        "function": "adverbial",
+        "description": "Cheeks sucked in",
+        "usage": "Small size, few, thin, narrow",
+        "exampleContext": "SMALL (with sucked cheeks = very small/tiny)"
+      },
+      {
+        "id": "smile",
+        "function": "affective",
+        "description": "Smiling expression",
+        "usage": "Positive evaluation, happiness, friendliness"
+      },
+      {
+        "id": "frown",
+        "function": "affective",
+        "description": "Frowning expression",
+        "usage": "Negative evaluation, displeasure, seriousness"
+      },
+      {
+        "id": "tongue_out",
+        "function": "adverbial",
+        "description": "Tongue protruding or visible",
+        "usage": "Carelessness, not serious, 'th' mouth pattern for inattention"
+      }
+    ],
+    "mouthPatterns": [
+      {
+        "id": "english_mouthing",
+        "function": "lexical",
+        "description": "Mouthing the English word (or part of it) silently",
+        "usage": "Distinguishing signs with same manual form (e.g. AUNT vs UNCLE); very common in BSL",
+        "notes": "More prevalent in BSL than many other sign languages; used for nouns especially"
+      },
+      {
+        "id": "mouth_gesture_mm_relaxed",
+        "function": "adverbial",
+        "description": "Relaxed 'mm' mouth pattern with lips together",
+        "usage": "Ease, average quality, normal, done with ease"
+      },
+      {
+        "id": "mouth_gesture_mm_tense",
+        "function": "adverbial",
+        "description": "Tense 'mm' with pressed lips",
+        "usage": "Exactness, firmness, determination, done with effort"
+      },
+      {
+        "id": "mouth_gesture_pah",
+        "function": "adverbial",
+        "description": "Sharp 'pah' mouth opening",
+        "usage": "Finally done, relief, completion, at last"
+      },
+      {
+        "id": "mouth_gesture_puff",
+        "function": "adverbial",
+        "description": "Puffing air out",
+        "usage": "Large quantity, exhaustion, long time"
+      },
+      {
+        "id": "mouth_open",
+        "function": "adverbial",
+        "description": "Mouth held open",
+        "usage": "Surprise, shock, large"
+      }
+    ],
+    "headMovements": [
+      {
+        "id": "head_nod",
+        "function": "grammatical",
+        "description": "Head nodding (up and down)",
+        "usage": "Affirmation, agreement, YES"
+      },
+      {
+        "id": "head_shake",
+        "function": "grammatical",
+        "description": "Head shaking (side to side)",
+        "usage": "Negation, NO, NOT; can negate any sign when performed simultaneously"
+      },
+      {
+        "id": "head_tilt_forward",
+        "function": "grammatical",
+        "description": "Head tilted forward / chin down",
+        "usage": "WH-questions, emphasis"
+      },
+      {
+        "id": "head_tilt_side",
+        "function": "pragmatic",
+        "description": "Head tilted to one side",
+        "usage": "Conditional ('if'), considering, uncertainty"
+      },
+      {
+        "id": "head_back",
+        "function": "pragmatic",
+        "description": "Head moved/tilted backward",
+        "usage": "Surprise, realization, past reference"
+      }
+    ],
+    "bodyMovements": [
+      {
+        "id": "shoulder_raise",
+        "function": "pragmatic",
+        "description": "Shoulders raised (shrug)",
+        "usage": "Uncertainty, questioning, 'I don't know'"
+      },
+      {
+        "id": "body_lean_forward",
+        "function": "grammatical",
+        "description": "Torso leans forward",
+        "usage": "Yes/no questions, emphasis, engagement"
+      },
+      {
+        "id": "body_shift",
+        "function": "grammatical",
+        "description": "Torso shifts to left or right",
+        "usage": "Role shift / constructed action (taking on character perspective in narrative), spatial contrast"
+      },
+      {
+        "id": "chest_puff",
+        "function": "affective",
+        "description": "Chest puffed out",
+        "usage": "Pride, confidence"
+      },
+      {
+        "id": "shoulders_droop",
+        "function": "affective",
+        "description": "Shoulders drooped down",
+        "usage": "Disappointment, sadness, fatigue"
+      }
+    ]
+  },
+
+  "twoHandedSignTypes": {
+    "_notes": "Classification of two-handed signs following Battison's constraints",
+    "types": [
+      {
+        "id": "symmetric",
+        "description": "Both hands have same handshape and perform same movement (symmetrical)",
+        "examples": ["SUCCEED", "FOOTBALL", "AGREE", "STRONG", "FINISH", "SAME"],
+        "constraint": "Symmetry Condition: both hands have same handshape, location, and movement"
+      },
+      {
+        "id": "asymmetric_active_passive",
+        "description": "Dominant hand moves/acts on stationary non-dominant hand (base hand)",
+        "examples": ["JOIN", "BEST", "TRY", "LAST", "HELP", "WRITE", "MOTHER"],
+        "constraint": "Dominance Condition: non-dominant hand uses one of the unmarked handshapes (B, A, 5, G, O, C)"
+      }
+    ]
+  },
+
+  "timelines": {
+    "_notes": "BSL uses spatial timelines rather than tense conjugation",
+    "timelineA": {
+      "description": "Main timeline - sagittal (front-to-back) axis",
+      "past": "Signs move backward over the shoulder",
+      "present": "Signs produced at or near the body",
+      "future": "Signs move forward from the body",
+      "examples": {
+        "YESTERDAY": "Arc backward over shoulder",
+        "NOW": "Produced at body level",
+        "TOMORROW": "Arc forward from body"
+      }
+    },
+    "timelineB": {
+      "description": "Short-term timeline - along the non-dominant forearm",
+      "usage": "Shows days of the week, short time spans",
+      "near": "Near wrist = near future/past",
+      "far": "Near elbow = further away in time"
+    }
+  }
+}
