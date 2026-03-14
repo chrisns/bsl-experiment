@@ -27,7 +27,6 @@
         setupTextPanel();
         setupSpeech();
         setupAuth();
-        setupDominantHand();
         setupSentenceBar();
 
         // Set up landmark-based sign recogniser callback (primary recognition)
@@ -411,23 +410,6 @@
             if (britishVoice) utterance.voice = britishVoice;
             speechSynthesis.speak(utterance);
         }
-    }
-
-    // ============ DOMINANT HAND TOGGLE ============
-    function setupDominantHand() {
-        const btn = document.getElementById('domHandBtn');
-        const label = document.getElementById('domHandLabel');
-        if (!btn || !label) return;
-
-        // Default: right-handed (selfie camera already mirrors)
-        let isRightHanded = true;
-
-        btn.addEventListener('click', () => {
-            isRightHanded = !isRightHanded;
-            label.textContent = isRightHanded ? 'Right' : 'Left';
-            btn.setAttribute('aria-label', `Dominant hand: ${isRightHanded ? 'Right' : 'Left'}`);
-            btn.classList.toggle('active', isRightHanded);
-        });
     }
 
     // ============ AUTH ============

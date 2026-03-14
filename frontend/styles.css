@@ -594,7 +594,77 @@ body {
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 768px) {
-    .text-panel { width: 100%; position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; }
+    /* Hide text→BSL panel and toggle on mobile */
+    .text-panel { display: none; }
+    .btn-toggle-panel { display: none; }
+
+    /* Nav: compact layout */
+    .nav {
+        padding: 0.4rem 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+    .nav-brand {
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+    .nav-modes {
+        gap: 0.25rem;
+        order: 1;
+        width: 100%;
+        justify-content: center;
+    }
+    .nav-btn {
+        padding: 0.35rem 0.7rem;
+        font-size: 0.78rem;
+    }
+    .nav-user {
+        gap: 0.5rem;
+        margin-left: auto;
+    }
+    .btn-auth {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;
+    }
+
+    /* Camera: fill available height */
+    .app-container {
+        height: calc(100vh - 80px); /* account for taller wrapped nav */
+    }
+    .video-area {
+        height: 100%;
+    }
+
+    /* Caption bar: tighter on mobile */
+    .caption-bar {
+        padding: 0.6rem 0.75rem;
+        min-height: 48px;
+    }
+    .caption-text {
+        font-size: 1.15rem;
+    }
+    .caption-confidence {
+        font-size: 0.75rem;
+    }
+
+    /* Sentence bar: tighter on mobile */
+    .sentence-bar {
+        bottom: 60px;
+        padding: 0.35rem 0.75rem;
+    }
+    .sentence-text {
+        font-size: 0.95rem;
+    }
+
+    /* PiP overlay: smaller on mobile */
+    .pip-overlay {
+        width: 160px;
+        height: 120px;
+        bottom: 60px;
+        right: 8px;
+    }
+
+    /* Practice & Kiosk */
     .practice-mode.active { grid-template-columns: 1fr; }
     .kiosk-buttons { flex-direction: column; }
     .kiosk-btn { width: 100%; height: 200px; }
