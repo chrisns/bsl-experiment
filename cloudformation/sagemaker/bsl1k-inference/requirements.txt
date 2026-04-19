@@ -1,6 +1,6 @@
 # torch, torchvision, numpy are pre-installed in the DLC container — do NOT reinstall
 # as it breaks PyTorch's numpy integration (RuntimeError: Numpy is not available)
 # Pin numpy<2 to prevent scipy/opencv upgrading it past PyTorch 2.2 compatibility
-numpy<2
+numpy<3
 opencv-python-headless>=4.8.0
 scipy>=1.11.0
